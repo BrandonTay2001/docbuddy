@@ -47,14 +47,3 @@ export async function analyzeMedicalTranscript(transcript: string): Promise<{
     throw error;
   }
 }
-
-async function testDeepseek() {
-  const completion = await openai.chat.completions.create({
-    messages: [{ role: "system", content: "You are a helpful assistant." }, 
-      { role: "user", content: "What is the capital of France?" }
-    ],
-    model: "deepseek-chat",
-  });
-
-  console.log(completion.choices[0].message.content);
-}
