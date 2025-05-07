@@ -207,9 +207,15 @@ export default function NewSession() {
             </div>
 
             <div className="mb-6 p-6 border border-border rounded-md bg-background">
-              <h2 className="text-xl font-bold mb-4">Summary</h2>
-              <div className="p-4 bg-input rounded-md max-h-48 overflow-y-auto">
-                <p className="whitespace-pre-wrap">{summary}</p>
+              <h2 className="text-xl font-bold mb-4">Editable Summary</h2>
+              <div className="mb-2">
+                <textarea
+                  id="summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  className="input w-full min-h-[100px] p-3 whitespace-pre-wrap"
+                  placeholder="Edit summary"
+                />
               </div>
             </div>
             
