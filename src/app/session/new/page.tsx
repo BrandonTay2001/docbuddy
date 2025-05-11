@@ -24,6 +24,8 @@ export default function NewSession() {
   const [doctorNotes, setDoctorNotes] = useState('');
   const [error, setError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   // Use refs to store the DOM elements once they're available
   const recorderMicRef = useRef<HTMLElement | null>(null);
@@ -81,6 +83,11 @@ export default function NewSession() {
     setError('');
     
     try {
+      // Store the audio blob and create a URL for playback
+      setAudioBlob(audioBlob);
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
       // Step 1: Transcribe the audio
       const transcriptText = await transcribeAudioElevenlabs(audioBlob);
       setTranscript(transcriptText);
@@ -114,34 +121,34 @@ export default function NewSession() {
     try {
       setIsProcessing(true);
       
-      const documentData = {
-        patientName,
-        patientAge,
-        date: new Date().toLocaleDateString(),
-        summary,
-        diagnosis: finalDiagnosis,
-        prescription: finalPrescription,
-        doctorNotes,
-      };
+      // Save session data and get document URL
+      const sessionResponse = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientName,
+          patientAge,
+          transcript,
+          summary,
+          suggestedDiagnosis,
+          suggestedPrescription,
+          finalDiagnosis,
+          finalPrescription,
+          doctorNotes,
+        }),
+      });
+
+      if (!sessionResponse.ok) {
+        throw new Error('Failed to save session data');
+      }
+
+      const { documentUrl } = await sessionResponse.json();
       
-      const htmlBytes = await generateMedicalDocument(documentData);
-      
-      // Only run in browser context
-      if (isMounted) {
-        // Convert the HTML bytes to a blob and create a download link
-        const blob = new Blob([htmlBytes], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${patientName.replace(/\s+/g, '_')}_medical_record.html`;
-        
-        // Optional: Open the document in a new tab
-        window.open(url, '_blank');
-        
-        // Cleanup the URL object
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 100);
+      // Open the document in a new tab
+      if (isMounted && documentUrl) {
+        window.open(documentUrl, '_blank');
       }
     } catch (error) {
       console.error('Error generating document:', error);
@@ -150,6 +157,15 @@ export default function NewSession() {
       setIsProcessing(false);
     }
   };
+
+  // Cleanup audio URL when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   // Show a simple loading state during SSR
   if (!isMounted) {
@@ -199,11 +215,23 @@ export default function NewSession() {
           </>
         ) : (
           <>
+            {audioUrl && (
+              <div className="mb-6 p-6 rounded-md bg-background">
+                <audio 
+                  controls 
+                  className="w-full"
+                  src={audioUrl}
+                >
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            )}
+
             <div className="mb-6 p-6 border border-border rounded-md bg-background">
               <h2 className="text-xl font-bold mb-4">Transcript</h2>
               <div className="p-4 bg-input rounded-md max-h-48 overflow-y-auto">
                 <p className="whitespace-pre-wrap">{transcript}</p>
-              </div>
+              </div>  
             </div>
 
             <div className="mb-6 p-6 border border-border rounded-md bg-background">

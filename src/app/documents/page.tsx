@@ -5,7 +5,15 @@ import Link from 'next/link';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import { getUserProfile } from '@/lib/auth';
-import { generateMedicalDocument } from '@/lib/pdf';
+import { generateMedicalDocumentHtml } from '@/lib/pdf';
+import { uploadToR2 } from '@/lib/r2';
+
+interface Session {
+  id: string;
+  name: string;
+  created_at: string;
+  document_url: string;
+}
 
 export default function Documents() {
   const [isLoading, setIsLoading] = useState(true);
@@ -13,6 +21,7 @@ export default function Documents() {
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [sessions, setSessions] = useState<Session[]>([]);
   
   // Form state
   const [patientName, setPatientName] = useState('');
@@ -25,20 +34,28 @@ export default function Documents() {
   useEffect(() => {
     setIsMounted(true);
     
-    const fetchUser = async () => {
+    const fetchData = async () => {
       try {
         const user = await getUserProfile();
         if (!user) {
           throw new Error('User not found');
         }
+
+        // Fetch user sessions
+        const response = await fetch(`/api/sessions?userId=${user.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch sessions');
+        }
+        const data = await response.json();
+        setSessions(data.sessions);
       } catch (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUser();
+    fetchData();
   }, []);
 
   const handleCreateDocument = async () => {
@@ -50,32 +67,43 @@ export default function Documents() {
     try {
       setIsProcessing(true);
       setError('');
-      
-      const documentData = {
-        patientName,
-        patientAge,
-        date: new Date().toLocaleDateString(),
-        summary,
-        diagnosis,
-        prescription,
-        doctorNotes,
-      };
-      
-      const htmlBytes = await generateMedicalDocument(documentData);
+
+      // Get current user
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Save to database
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          patientName,
+          patientAge,
+          transcript: '', // Empty since this is a manual document
+          summary,
+          suggestedDiagnosis: diagnosis, // Use final diagnosis as suggested
+          suggestedPrescription: prescription, // Use final prescription as suggested
+          finalDiagnosis: diagnosis,
+          finalPrescription: prescription,
+          doctorNotes,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save document data');
+      }
       
       // Only run in browser context
       if (isMounted) {
-        // Convert the HTML bytes to a blob and create a download link
-        const blob = new Blob([htmlBytes], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        
+        const { documentUrl } = await response.json();
+
         // Open the document in a new tab
-        window.open(url, '_blank');
-        
-        // Cleanup
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 100);
+        window.open(documentUrl, '_blank');
         
         // Reset form after successful creation
         resetForm();
@@ -260,6 +288,36 @@ export default function Documents() {
                 </Button>
               </div>
             </div>
+          </div>
+        ) : sessions.length > 0 ? (
+          <div className="space-y-4">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className="p-4 border border-border rounded-md bg-background hover:bg-accent/5 transition-colors"
+              >
+                <div className="flex justify-between items-center">
+                  <Link href={`/documents/edit/${session.id}`} className="hover:underline">
+                    <div>
+                      <h3 className="text-lg font-semibold">{session.name}</h3>
+                      <p className="text-sm text-gray-500">
+                        {new Date(session.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        window.open(session.document_url, '_blank');
+                      }}
+                    >
+                      View Report
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="p-8 border border-border rounded-md bg-background text-center">
