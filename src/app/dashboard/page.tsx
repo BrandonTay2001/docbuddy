@@ -62,7 +62,9 @@ export default function Dashboard() {
         <header className="flex justify-between items-center mb-12 pb-4 border-b border-border">
           <h1 className="text-3xl font-bold">DocBuddy</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm">{userName}</span>
+            <Link href="/settings" className="text-sm hover:underline">
+              {userName}
+            </Link>
             <Button variant="secondary" onClick={handleSignOut}>
               Sign Out
             </Button>

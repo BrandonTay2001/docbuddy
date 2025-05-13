@@ -7,20 +7,41 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-// Function to analyze transcript and generate diagnosis suggestions
-export async function analyzeMedicalTranscript(transcript: string): Promise<{ 
-  summary: string;
-  suggestedDiagnosis: string;
-  suggestedPrescription: string;
-}> {
-  console.log('Analyzing transcript:', transcript);
+async function generateSummary(transcript: string, summaryPrompt: string): Promise<string> {
   try {
     const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
         {
           role: "system",
-          content: "You are a medical assistant AI. Analyze the following doctor-patient conversation and provide a summary, suggested diagnosis (on top of the dcotor's prescription, if any) and suggested prescription. Be professional and return in point form, only containing necessary information. The doctor and patient are not labeled so you would need to identify which is which. Sometimes, multiple languages may be present but you only need to return results in English, translate as necessary. Please provide the summary, diagnosis and prescription in the following format and do not include font stylings like bold or italic: Summary: <summary>\nDiagnosis: <diagnosis>\nPrescription: <prescription>"
+          content: summaryPrompt
+        },
+        {
+          role: "user",
+          content: transcript
+        }
+      ],
+    });
+
+    const response = completion.choices[0].message.content || '';
+    return response.trim();
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    throw error;
+  }
+}
+
+async function generateDiagnosisAndPrescription(
+  transcript: string, 
+  clinicPrompt: string
+): Promise<{ diagnosis: string; prescription: string }> {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content: `${clinicPrompt}\n\nPlease provide the diagnosis and prescription in the following format:\nDiagnosis: <diagnosis>\nPrescription: <prescription>`
         },
         {
           role: "user",
@@ -31,19 +52,49 @@ export async function analyzeMedicalTranscript(transcript: string): Promise<{
 
     const response = completion.choices[0].message.content || '';
     
-    // Parse the response to extract diagnosis and prescription suggestions
-    // match one more for the summary
-    const summaryMatch = response.match(/Summary:([\s\S]*?)(?=Diagnosis:|$)/);
+    // Parse the response to extract diagnosis and prescription
     const diagnosisMatch = response.match(/Diagnosis:([\s\S]*?)(?=Prescription:|$)/);
     const prescriptionMatch = response.match(/Prescription:([\s\S]*?)(?=$)/);
     
     return {
-      summary: summaryMatch ? summaryMatch[1].trim() : 'No summary available',
-      suggestedDiagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : 'No diagnosis suggestion available',
-      suggestedPrescription: prescriptionMatch ? prescriptionMatch[1].trim() : 'No prescription suggestion available',
+      diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : 'No diagnosis suggestion available',
+      prescription: prescriptionMatch ? prescriptionMatch[1].trim() : 'No prescription suggestion available',
+    };
+  } catch (error) {
+    console.error('Error generating diagnosis and prescription:', error);
+    throw error;
+  }
+}
+
+// Function to analyze transcript and generate diagnosis suggestions
+export async function analyzeMedicalTranscript(
+  transcript: string,
+  clinicPrompt: string,
+  summaryPrompt: string
+): Promise<{ 
+  summary: string;
+  suggestedDiagnosis: string;
+  suggestedPrescription: string;
+}> {
+  console.log('Analyzing transcript:', transcript);
+  try {
+    // Generate summary
+    const summary = await generateSummary(transcript, summaryPrompt);
+    
+    // Generate diagnosis and prescription
+    const { diagnosis, prescription } = await generateDiagnosisAndPrescription(
+      transcript,
+      clinicPrompt
+    );
+    
+    return {
+      summary,
+      suggestedDiagnosis: diagnosis,
+      suggestedPrescription: prescription,
     };
   } catch (error) {
     console.error('Error analyzing transcript:', error);
     throw error;
   }
 }
+

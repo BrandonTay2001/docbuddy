@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
-import { analyzeMedicalTranscript } from '@/lib/openai';
 import { generateMedicalDocument } from '@/lib/pdf';
 import AudioRecorder from '@/components/AudioRecorder';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
+import { getUserProfile } from '@/lib/auth';
 
 export default function NewSession() {
   const [isRecording, setIsRecording] = useState(false);
@@ -26,6 +26,7 @@ export default function NewSession() {
   const [isMounted, setIsMounted] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   // Use refs to store the DOM elements once they're available
   const recorderMicRef = useRef<HTMLElement | null>(null);
@@ -93,8 +94,28 @@ export default function NewSession() {
       setTranscript(transcriptText);
       
       // Step 2: Analyze the transcript for diagnosis and prescription suggestions
-      const analysis = await analyzeMedicalTranscript(transcriptText);
-      // also set the summary
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use the API route for transcript analysis
+      const searchParams = new URLSearchParams({
+        userId: user.id,
+        transcript: transcriptText
+      });
+      
+      const analysisResponse = await fetch(`/api/sessions?${searchParams.toString()}`, {
+        method: 'OPTIONS'
+      });
+      
+      if (!analysisResponse.ok) {
+        throw new Error('Failed to analyze transcript');
+      }
+      
+      const { analysis } = await analysisResponse.json();
+      
+      // Set the analysis results
       setSummary(analysis.summary);
       setSuggestedDiagnosis(analysis.suggestedDiagnosis);
       setSuggestedPrescription(analysis.suggestedPrescription);
@@ -120,6 +141,11 @@ export default function NewSession() {
     
     try {
       setIsProcessing(true);
+
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not found');
+      }
       
       // Save session data and get document URL
       const sessionResponse = await fetch('/api/sessions', {
@@ -128,6 +154,7 @@ export default function NewSession() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId: user.id,
           patientName,
           patientAge,
           transcript,
@@ -178,9 +205,17 @@ export default function NewSession() {
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold">New Patient Session</h1>
-            <Link href="/dashboard">
-              <Button variant="secondary">Back to Dashboard</Button>
-            </Link>
+            <div className="flex gap-4">
+              <Button 
+                variant="secondary"
+                onClick={() => window.open('/session/new', '_blank')}
+              >
+                Parallel Session
+              </Button>
+              <Link href="/dashboard">
+                <Button variant="secondary">Back to Dashboard</Button>
+              </Link>
+            </div>
           </div>
         </header>
         
@@ -227,11 +262,24 @@ export default function NewSession() {
               </div>
             )}
 
-            <div className="mb-6 p-6 border border-border rounded-md bg-background">
-              <h2 className="text-xl font-bold mb-4">Transcript</h2>
-              <div className="p-4 bg-input rounded-md max-h-48 overflow-y-auto">
-                <p className="whitespace-pre-wrap">{transcript}</p>
-              </div>  
+            <div className="mb-6 relative">
+              <div className={`p-6 border border-border rounded-md bg-background ${!showTranscript ? 'blur-sm' : ''}`}>
+                <h2 className="text-xl font-bold mb-4">Transcript</h2>
+                <div className="p-4 bg-input rounded-md max-h-48 overflow-y-auto">
+                  <p className="whitespace-pre-wrap">{transcript}</p>
+                </div>  
+              </div>
+              
+              {!showTranscript && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowTranscript(true)}
+                  >
+                    Show Transcript
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="mb-6 p-6 border border-border rounded-md bg-background">
@@ -332,7 +380,10 @@ export default function NewSession() {
             
             <div className="flex justify-end">
               <Button 
-                onClick={handleGenerateDocument}
+                onClick={async () => {
+                  await handleGenerateDocument();
+                  window.location.href = '/dashboard';
+                }}
                 disabled={isProcessing}
               >
                 Generate Document
@@ -343,4 +394,4 @@ export default function NewSession() {
       </div>
     </main>
   );
-} 
+}
