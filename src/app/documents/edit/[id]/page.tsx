@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/Button';
 import { getUserProfile } from '@/lib/auth';
-import { generateMedicalDocumentHtml } from '@/lib/pdf';
-import { uploadToR2 } from '@/lib/r2';
 
 interface Session {
   id: string;

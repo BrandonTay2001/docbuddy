@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
-import { generateMedicalDocument } from '@/lib/pdf';
 import AudioRecorder from '@/components/AudioRecorder';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
@@ -24,7 +23,7 @@ export default function NewSession() {
   const [doctorNotes, setDoctorNotes] = useState('');
   const [error, setError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  // const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
@@ -85,7 +84,7 @@ export default function NewSession() {
     
     try {
       // Store the audio blob and create a URL for playback
-      setAudioBlob(audioBlob);
+      // setAudioBlob(audioBlob);
       const url = URL.createObjectURL(audioBlob);
       setAudioUrl(url);
       

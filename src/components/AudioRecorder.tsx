@@ -94,27 +94,27 @@ const AudioRecorder = ({
   };
 
   // Handle pausing the recording
-  const handlePause = () => {
-    if (!recorderRef.current) return;
+  // const handlePause = () => {
+  //   if (!recorderRef.current) return;
     
-    try {
-      recorderRef.current.stop()
-        .getMp3()
-        .then(([, blob]: [ArrayBuffer, Blob]) => {
-          // Use the blob directly from mic-recorder rather than creating a new one
-          // This is more reliable as it's properly formatted by the recorder
-          onRecordingComplete(blob);
-          onStopRecording();
-        })
-        .catch((error: Error) => {
-          console.error('Error pausing recording:', error);
-          onStopRecording();
-        });
-    } catch (error) {
-      console.error('Failed to pause recording:', error);
-      onStopRecording();
-    }
-  };
+  //   try {
+  //     recorderRef.current.stop()
+  //       .getMp3()
+  //       .then(([, blob]: [ArrayBuffer, Blob]) => {
+  //         // Use the blob directly from mic-recorder rather than creating a new one
+  //         // This is more reliable as it's properly formatted by the recorder
+  //         onRecordingComplete(blob);
+  //         onStopRecording();
+  //       })
+  //       .catch((error: Error) => {
+  //         console.error('Error pausing recording:', error);
+  //         onStopRecording();
+  //       });
+  //   } catch (error) {
+  //     console.error('Failed to pause recording:', error);
+  //     onStopRecording();
+  //   }
+  // };
   
   // Handle stopping the recording
   const handleStop = () => {
