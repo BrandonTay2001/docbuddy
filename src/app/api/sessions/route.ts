@@ -187,44 +187,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error saving session:', error);
     return NextResponse.json(
-      { error: 'Failed e save session' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function OPTIONS(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const transcript = searchParams.get('transcript');
-
-    if (!userId || !transcript) {
-      return NextResponse.json(
-        { error: 'User ID and transcript are required' },
-        { status: 400 }
-      );
-    }
-
-    // Get user settings
-    const userSettings = await getUserSettings(userId);
-    
-    // Analyze transcript
-    const analysis = await analyzeMedicalTranscript(
-      transcript,
-      userSettings.clinic_prompt,
-      userSettings.summary_prompt
-    );
-
-    return NextResponse.json({
-      success: true,
-      analysis
-    });
-
-  } catch (error) {
-    console.error('Error analyzing transcript:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze transcript' },
+      { error: 'Failed to save session' },
       { status: 500 }
     );
   }

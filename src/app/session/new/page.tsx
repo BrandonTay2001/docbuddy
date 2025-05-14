@@ -8,6 +8,16 @@ import AudioRecorder from '@/components/AudioRecorder';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
 
+// Language mapping from display name to ElevenLabs language code
+const languageOptions = [
+  { label: 'Detect', value: null },
+  { label: 'English', value: 'eng' },
+  { label: 'Malay', value: 'msa' },
+  { label: 'Tamil', value: 'tam' },
+  { label: 'Mandarin', value: 'cmn' },
+  { label: 'Cantonese', value: 'yue' },
+];
+
 export default function NewSession() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,6 +36,7 @@ export default function NewSession() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const recorderMicRef = useRef<HTMLElement | null>(null);
@@ -145,7 +156,7 @@ export default function NewSession() {
     setError('');
     
     try {
-      const transcriptText = await transcribeAudioElevenlabs(audioBlob);
+      const transcriptText = await transcribeAudioElevenlabs(audioBlob, selectedLanguage);
       setTranscript(transcriptText);
       
       const user = await getUserProfile();
@@ -153,13 +164,16 @@ export default function NewSession() {
         throw new Error('User not authenticated');
       }
 
-      const searchParams = new URLSearchParams({
-        userId: user.id,
-        transcript: transcriptText
-      });
-      
-      const analysisResponse = await fetch(`/api/sessions?${searchParams.toString()}`, {
-        method: 'OPTIONS'
+      // Use POST method with data in request body instead of OPTIONS with query params
+      const analysisResponse = await fetch('/api/sessions/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          transcript: transcriptText
+        }),
       });
       
       if (!analysisResponse.ok) {
@@ -298,6 +312,31 @@ export default function NewSession() {
               </p>
               
               <div className="flex flex-col gap-4 mb-4">
+                {/* Language selection dropdown */}
+                <div className="w-full p-4 border border-border rounded-md bg-background">
+                  <label htmlFor="language-select" className="block mb-2 text-sm font-medium">
+                    Select Language
+                  </label>
+                  <select
+                    id="language-select"
+                    className="input w-full"
+                    value={selectedLanguage === null ? '' : selectedLanguage}
+                    onChange={(e) => setSelectedLanguage(e.target.value === '' ? null : e.target.value)}
+                  >
+                    {languageOptions.map((option) => (
+                      <option 
+                        key={option.label} 
+                        value={option.value === null ? '' : option.value}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Choose the majority spoken language in the recording or select "Detect" for automatic detection.
+                  </p>
+                </div>
+                
                 <AudioRecorder
                   onRecordingComplete={handleRecordingComplete}
                   isRecording={isRecording}

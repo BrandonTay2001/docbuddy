@@ -7,14 +7,17 @@ interface SpeakerSegment {
     speech: string
 }
 
-export async function transcribeAudioElevenlabs(audioBlob: Blob): Promise<string> {
+export async function transcribeAudioElevenlabs(audioBlob: Blob, languageCode: string | null = null): Promise<string> {
     // download the audio blob as a file
     const file = new File([audioBlob], "recording.mp3", { type: "audio/mp3" });
-    const transcription = await client.speechToText.convert({
+    const options = {
         file: file,
         model_id: "scribe_v1",
-        diarize: true
-    });
+        diarize: true,
+        ...(languageCode && { language_code: languageCode })
+    };
+    
+    const transcription = await client.speechToText.convert(options);
 
     const segments: SpeakerSegment[] = [];
     let currentSpeaker = transcription.words[0]?.speaker_id || '';
