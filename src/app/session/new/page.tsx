@@ -23,20 +23,86 @@ export default function NewSession() {
   const [doctorNotes, setDoctorNotes] = useState('');
   const [error, setError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
-  // const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Use refs to store the DOM elements once they're available
   const recorderMicRef = useRef<HTMLElement | null>(null);
   const recorderStopRef = useRef<HTMLElement | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Set up DOM references after mount
+  // Add new state and handlers for drag and drop functionality
+  const [isDragging, setIsDragging] = useState(false);
+  const dropAreaRef = useRef<HTMLDivElement>(null);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (isUploading || isProcessing) return;
+    
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      handleFile(files[0]);
+    }
+  };
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    
+    setIsUploading(true);
+    setError('');
+    
+    try {
+      if (!file.type.startsWith('audio/')) {
+        throw new Error('Please upload an audio file (mp3, wav, etc.)');
+      }
+      
+      if (file.size > 30 * 1024 * 1024) {
+        throw new Error('File size exceeds 30MB limit');
+      }
+      
+      const url = URL.createObjectURL(file);
+      setAudioUrl(url);
+      
+      await processAudioBlob(file);
+      
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      setError(error.message || 'An error occurred while processing the audio file.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
     
-    // Set a timeout to ensure the elements are in the DOM
     timeoutRef.current = setTimeout(() => {
       recorderMicRef.current = document.querySelector('.audio-recorder-mic') as HTMLElement;
       recorderStopRef.current = document.querySelector('.audio-recorder-stop') as HTMLElement;
@@ -53,12 +119,10 @@ export default function NewSession() {
   const handleStartRecording = () => {
     setIsRecording(true);
     
-    // Try to find the element if it wasn't found initially
     if (!recorderMicRef.current) {
       recorderMicRef.current = document.querySelector('.audio-recorder-mic') as HTMLElement;
     }
     
-    // Only access DOM when mounted
     if (isMounted && recorderMicRef.current) {
       recorderMicRef.current.click();
     }
@@ -67,38 +131,28 @@ export default function NewSession() {
   const handleStopRecording = () => {
     setIsRecording(false);
     
-    // Try to find the element if it wasn't found initially
     if (!recorderStopRef.current) {
       recorderStopRef.current = document.querySelector('.audio-recorder-stop') as HTMLElement;
     }
     
-    // Only access DOM when mounted
     if (isMounted && recorderStopRef.current) {
       recorderStopRef.current.click();
     }
   };
 
-  const handleRecordingComplete = async (audioBlob: Blob) => {
+  const processAudioBlob = async (audioBlob: Blob) => {
     setIsProcessing(true);
     setError('');
     
     try {
-      // Store the audio blob and create a URL for playback
-      // setAudioBlob(audioBlob);
-      const url = URL.createObjectURL(audioBlob);
-      setAudioUrl(url);
-      
-      // Step 1: Transcribe the audio
       const transcriptText = await transcribeAudioElevenlabs(audioBlob);
       setTranscript(transcriptText);
       
-      // Step 2: Analyze the transcript for diagnosis and prescription suggestions
       const user = await getUserProfile();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Use the API route for transcript analysis
       const searchParams = new URLSearchParams({
         userId: user.id,
         transcript: transcriptText
@@ -114,21 +168,33 @@ export default function NewSession() {
       
       const { analysis } = await analysisResponse.json();
       
-      // Set the analysis results
       setSummary(analysis.summary);
       setSuggestedDiagnosis(analysis.suggestedDiagnosis);
       setSuggestedPrescription(analysis.suggestedPrescription);
       
-      // Pre-fill the final diagnosis and prescription with suggestions
       setFinalDiagnosis(analysis.suggestedDiagnosis);
       setFinalPrescription(analysis.suggestedPrescription);
       
       setIsComplete(true);
     } catch (error) {
-      console.error('Error processing recording:', error);
-      setError('An error occurred while processing the recording. Please try again.');
+      console.error('Error processing audio:', error);
+      setError('An error occurred while processing the audio. Please try again.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRecordingComplete = async (audioBlob: Blob) => {
+    const url = URL.createObjectURL(audioBlob);
+    setAudioUrl(url);
+    await processAudioBlob(audioBlob);
+  };
+
+  // Update the file upload handler to use the common function
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFile(file);
     }
   };
 
@@ -146,7 +212,6 @@ export default function NewSession() {
         throw new Error('User not found');
       }
       
-      // Save session data and get document URL
       const sessionResponse = await fetch('/api/sessions', {
         method: 'POST',
         headers: {
@@ -172,12 +237,10 @@ export default function NewSession() {
 
       const { documentUrl } = await sessionResponse.json();
       
-      // Open the document in a new tab
       if (isMounted && documentUrl) {
         window.open(documentUrl, '_blank');
       }
       
-      // Redirect to dashboard after successful document generation
       window.location.href = '/dashboard';
       
     } catch (error) {
@@ -188,7 +251,6 @@ export default function NewSession() {
     }
   };
 
-  // Cleanup audio URL when component unmounts
   useEffect(() => {
     return () => {
       if (audioUrl) {
@@ -197,7 +259,6 @@ export default function NewSession() {
     };
   }, [audioUrl]);
 
-  // Show a simple loading state during SSR
   if (!isMounted) {
     return <div className="min-h-screen" />;
   }
@@ -222,10 +283,10 @@ export default function NewSession() {
           </div>
         </header>
         
-        {isProcessing && (
+        {(isProcessing || isUploading) && (
           <div className="flex justify-center items-center p-12">
             <div className="animate-spin h-8 w-8 border-2 border-accent rounded-full border-t-transparent mr-2" />
-            <p>Processing...</p>
+            <p>{isUploading ? 'Uploading...' : 'Processing...'}</p>
           </div>
         )}
         
@@ -233,16 +294,81 @@ export default function NewSession() {
           <>
             <div className="mb-8">
               <p className="mb-4">
-                Start recording your patient session. When you&apos;re done, click &quot;End Session&quot; to transcribe
-                and analyze the conversation.
+                Start recording your patient session or upload an existing audio file.
               </p>
               
-              <AudioRecorder
-                onRecordingComplete={handleRecordingComplete}
-                isRecording={isRecording}
-                onStartRecording={handleStartRecording}
-                onStopRecording={handleStopRecording}
-              />
+              <div className="flex flex-col gap-4 mb-4">
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  isRecording={isRecording}
+                  onStartRecording={handleStartRecording}
+                  onStopRecording={handleStopRecording}
+                />
+                
+                <div className="flex items-center justify-center">
+                  <div className="flex-grow h-px bg-border"></div>
+                  <span className="px-4 text-sm text-muted-foreground font-medium">OR</span>
+                  <div className="flex-grow h-px bg-border"></div>
+                </div>
+                
+                <div className="w-full p-6 border border-border rounded-md bg-background">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3>Upload Audio</h3>
+                  </div>
+                  
+                  <div
+                    ref={dropAreaRef}
+                    className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors ${
+                      isDragging 
+                        ? 'border-accent bg-accent/5' 
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ cursor: isUploading || isProcessing ? 'not-allowed' : 'pointer' }}
+                  >
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      ref={fileInputRef}
+                      disabled={isUploading || isProcessing}
+                    />
+                    
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className="h-12 w-12 text-muted-foreground mb-3"
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={1.5} 
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
+                      />
+                    </svg>
+                    
+                    <p className="mb-2 text-sm font-medium">
+                      {isDragging ? "Drop to upload" : "Drag audio file here or click to browse"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supported formats: MP3, WAV, M4A, etc. (Max 30MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {error && (
+                <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+                  {error}
+                </div>
+              )}
             </div>
           </>
         ) : (

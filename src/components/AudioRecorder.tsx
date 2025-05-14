@@ -143,7 +143,7 @@ const AudioRecorder = ({
     <div className="flex flex-col items-center space-y-4">
       <div className="w-full max-w-md p-6 border border-border rounded-md bg-background shadow-sm">
         <div className="flex justify-between items-center mb-4">
-          <h3>Session Recording</h3>
+          <h3>Record Live</h3>
           {isRecording && isMounted && (
             <div className="flex items-center">
               <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse mr-2" />
