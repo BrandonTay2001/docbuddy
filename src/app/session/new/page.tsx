@@ -176,6 +176,10 @@ export default function NewSession() {
       if (isMounted && documentUrl) {
         window.open(documentUrl, '_blank');
       }
+      
+      // Redirect to dashboard after successful document generation
+      window.location.href = '/dashboard';
+      
     } catch (error) {
       console.error('Error generating document:', error);
       setError('An error occurred while generating the document. Please try again.');
@@ -217,12 +221,6 @@ export default function NewSession() {
             </div>
           </div>
         </header>
-        
-        {error && (
-          <div className="mb-6 p-3 text-sm bg-red-100 text-red-800 rounded-md">
-            {error}
-          </div>
-        )}
         
         {isProcessing && (
           <div className="flex justify-center items-center p-12">
@@ -334,7 +332,7 @@ export default function NewSession() {
               />
             </div>
             
-            <div className="mb-8 p-6 border border-border rounded-md bg-background">
+            <div className="mb-4 p-6 border border-border rounded-md bg-background">
               <h2 className="text-xl font-bold mb-4">Doctor&apos;s Assessment</h2>
               
               <div className="mb-4">
@@ -377,12 +375,15 @@ export default function NewSession() {
               </div>
             </div>
             
+            {error && (
+              <div className="mb-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+                {error}
+              </div>
+            )}
+            
             <div className="flex justify-end">
               <Button 
-                onClick={async () => {
-                  await handleGenerateDocument();
-                  window.location.href = '/dashboard';
-                }}
+                onClick={handleGenerateDocument}
                 disabled={isProcessing}
               >
                 Generate Document
