@@ -12,7 +12,7 @@ import { getUserProfile } from '@/lib/auth';
 const languageOptions = [
   { label: 'Detect', value: null },
   { label: 'English', value: 'eng' },
-  { label: 'Malay', value: 'msa' },
+  { label: 'Bahasa Malaysia', value: 'msa' },
   { label: 'Tamil', value: 'tam' },
   { label: 'Mandarin', value: 'cmn' },
   { label: 'Cantonese', value: 'yue' },
@@ -212,6 +212,10 @@ export default function NewSession() {
     }
   };
 
+  // Add new state variables for examination results and plan
+  const [examinationResults, setExaminationResults] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+
   const handleGenerateDocument = async () => {
     if (!patientName || !patientAge || !finalDiagnosis || !finalPrescription) {
       setError('Please fill out all required fields.');
@@ -241,6 +245,8 @@ export default function NewSession() {
           suggestedPrescription,
           finalDiagnosis,
           finalPrescription,
+          examinationResults,
+          treatmentPlan,
           doctorNotes,
         }),
       });
@@ -312,37 +318,40 @@ export default function NewSession() {
               </p>
               
               <div className="flex flex-col gap-4 mb-4">
-                {/* Language selection dropdown */}
-                <div className="w-full p-4 border border-border rounded-md bg-background">
-                  <label htmlFor="language-select" className="block mb-2 text-sm font-medium">
-                    Select Language
-                  </label>
-                  <select
-                    id="language-select"
-                    className="input w-full"
-                    value={selectedLanguage === null ? '' : selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value === '' ? null : e.target.value)}
-                  >
-                    {languageOptions.map((option) => (
-                      <option 
-                        key={option.label} 
-                        value={option.value === null ? '' : option.value}
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Choose the majority spoken language in the recording or select "Detect" for automatic detection.
-                  </p>
+                {/* Audio recorder and language selection in a flex row layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <AudioRecorder
+                    onRecordingComplete={handleRecordingComplete}
+                    isRecording={isRecording}
+                    onStartRecording={handleStartRecording}
+                    onStopRecording={handleStopRecording}
+                  />
+                  
+                  {/* Language selection dropdown */}
+                  <div className="w-full p-4 border border-border rounded-md bg-background">
+                    <label htmlFor="language-select" className="block mb-2 text-sm font-medium">
+                      Select Language
+                    </label>
+                    <select
+                      id="language-select"
+                      className="input w-full"
+                      value={selectedLanguage === null ? '' : selectedLanguage}
+                      onChange={(e) => setSelectedLanguage(e.target.value === '' ? null : e.target.value)}
+                    >
+                      {languageOptions.map((option) => (
+                        <option 
+                          key={option.label} 
+                          value={option.value === null ? '' : option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Choose the majority spoken language in the recording or select "Detect" for automatic detection.
+                    </p>
+                  </div>
                 </div>
-                
-                <AudioRecorder
-                  onRecordingComplete={handleRecordingComplete}
-                  isRecording={isRecording}
-                  onStartRecording={handleStartRecording}
-                  onStopRecording={handleStopRecording}
-                />
                 
                 <div className="flex items-center justify-center">
                   <div className="flex-grow h-px bg-border"></div>
@@ -444,8 +453,31 @@ export default function NewSession() {
               )}
             </div>
 
+            {/* Moved Patient Information section to appear before Patient Complaint & Medical History */}
             <div className="mb-6 p-6 border border-border rounded-md bg-background">
-              <h2 className="text-xl font-bold mb-4">Editable Summary</h2>
+              <h2 className="text-xl font-bold mb-4">Patient Information</h2>
+              
+              <Input
+                label="Patient Name"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="John Doe"
+                required
+                fullWidth
+              />
+              
+              <Input
+                label="Patient Age"
+                value={patientAge}
+                onChange={(e) => setPatientAge(e.target.value)}
+                placeholder="45"
+                required
+                fullWidth
+              />
+            </div>
+
+            <div className="mb-6 p-6 border border-border rounded-md bg-background">
+              <h2 className="text-xl font-bold mb-4">Patient Complaint & Medical History</h2>
               <div className="mb-2">
                 <textarea
                   id="summary"
@@ -475,30 +507,21 @@ export default function NewSession() {
               </div>
             </div>
             
-            <div className="mb-8 p-6 border border-border rounded-md bg-background">
-              <h2 className="text-xl font-bold mb-4">Patient Information</h2>
-              
-              <Input
-                label="Patient Name"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="John Doe"
-                required
-                fullWidth
-              />
-              
-              <Input
-                label="Patient Age"
-                value={patientAge}
-                onChange={(e) => setPatientAge(e.target.value)}
-                placeholder="45"
-                required
-                fullWidth
-              />
-            </div>
-            
             <div className="mb-4 p-6 border border-border rounded-md bg-background">
               <h2 className="text-xl font-bold mb-4">Doctor&apos;s Assessment</h2>
+              
+              <div className="mb-4">
+                <label htmlFor="examination-results" className="block mb-2 text-sm font-medium">
+                  Examination Results
+                </label>
+                <textarea
+                  id="examination-results"
+                  value={examinationResults}
+                  onChange={(e) => setExaminationResults(e.target.value)}
+                  className="input w-full min-h-24"
+                  placeholder="Enter physical examination results"
+                />
+              </div>
               
               <div className="mb-4">
                 <label htmlFor="final-diagnosis" className="block mb-2 text-sm font-medium">
@@ -508,21 +531,34 @@ export default function NewSession() {
                   id="final-diagnosis"
                   value={finalDiagnosis}
                   onChange={(e) => setFinalDiagnosis(e.target.value)}
-                  className="input w-full min-h-32"
+                  className="input w-full min-h-24"
                   required
                 />
               </div>
               
               <div className="mb-4">
                 <label htmlFor="final-prescription" className="block mb-2 text-sm font-medium">
-                  Final Prescription
+                  Management
                 </label>
                 <textarea
                   id="final-prescription"
                   value={finalPrescription}
                   onChange={(e) => setFinalPrescription(e.target.value)}
-                  className="input w-full min-h-32"
+                  className="input w-full min-h-24"
                   required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="treatment-plan" className="block mb-2 text-sm font-medium">
+                  Plan
+                </label>
+                <textarea
+                  id="treatment-plan"
+                  value={treatmentPlan}
+                  onChange={(e) => setTreatmentPlan(e.target.value)}
+                  className="input w-full min-h-24"
+                  placeholder="Enter follow-up plan, tests, referrals, etc."
                 />
               </div>
               

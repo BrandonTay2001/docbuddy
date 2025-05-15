@@ -87,6 +87,8 @@ export async function POST(request: Request) {
       suggestedPrescription,
       finalDiagnosis,
       finalPrescription,
+      examinationResults, // New field
+      treatmentPlan,      // New field
       doctorNotes
     } = await request.json();
 
@@ -104,8 +106,10 @@ export async function POST(request: Request) {
       patientAge,
       date: new Date().toLocaleDateString(),
       summary,
+      examinationResults, // Pass new field to document
       diagnosis: finalDiagnosis,
       prescription: finalPrescription,
+      treatmentPlan,      // Pass new field to document
       doctorNotes,
     };
     
@@ -125,7 +129,7 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN');
 
-      // Insert data into patient_sessions
+      // Insert data into patient_sessions - adding the new fields
       const sessionQuery = `
         INSERT INTO patient_sessions (
           name,
@@ -136,10 +140,12 @@ export async function POST(request: Request) {
           suggested_prescription,
           final_diagnosis,
           final_prescription,
+          examination_results,
+          treatment_plan,
           doctor_notes,
           document_url,
           created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         RETURNING id::text;
       `;
 
@@ -152,6 +158,8 @@ export async function POST(request: Request) {
         suggestedPrescription,
         finalDiagnosis,
         finalPrescription,
+        examinationResults, // New field
+        treatmentPlan,      // New field
         doctorNotes,
         documentUrl
       ];

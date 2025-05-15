@@ -12,8 +12,10 @@ interface Session {
   age: number;
   transcript: string;
   summary: string;
-  diagnosis: string;
-  prescription: string;
+  examination_results: string; // Added field
+  final_diagnosis: string;
+  final_prescription: string;
+  treatment_plan: string; // Added field
   doctor_notes: string;
   document_url: string;
 }
@@ -29,8 +31,10 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
   // Form state
   const [transcript, setTranscript] = useState('');
   const [summary, setSummary] = useState('');
+  const [examinationResults, setExaminationResults] = useState(''); // Added field
   const [diagnosis, setDiagnosis] = useState('');
   const [prescription, setPrescription] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState(''); // Added field
   const [doctorNotes, setDoctorNotes] = useState('');
 
   useEffect(() => {
@@ -51,8 +55,10 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
         // Initialize form state
         setTranscript(data.session.transcript || 'No transcript available: this is a manually-added document');
         setSummary(data.session.summary || '');
+        setExaminationResults(data.session.examination_results || ''); // Initialize examination results
         setDiagnosis(data.session.final_diagnosis || '');
         setPrescription(data.session.final_prescription || '');
+        setTreatmentPlan(data.session.treatment_plan || ''); // Initialize treatment plan
         setDoctorNotes(data.session.doctor_notes || '');
       } catch (error) {
         console.error('Error fetching session:', error);
@@ -84,8 +90,10 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
         body: JSON.stringify({
           transcript,
           summary,
+          examinationResults, // Added field
           diagnosis,
           prescription,
+          treatmentPlan, // Added field
           doctorNotes,
         }),
       });
@@ -184,6 +192,17 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
               </div>
 
               <div>
+                <label htmlFor="examination-results" className="block text-sm font-medium mb-1">Examination Results</label>
+                <textarea
+                  id="examination-results"
+                  value={examinationResults}
+                  onChange={(e) => setExaminationResults(e.target.value)}
+                  className="w-full h-32 p-2 border rounded-md"
+                  placeholder="Enter physical examination findings..."
+                />
+              </div>
+
+              <div>
                 <label htmlFor="diagnosis" className="block text-sm font-medium mb-1">Final Diagnosis</label>
                 <textarea
                   id="diagnosis"
@@ -195,13 +214,24 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
               </div>
 
               <div>
-                <label htmlFor="prescription" className="block text-sm font-medium mb-1">Final Prescription</label>
+                <label htmlFor="prescription" className="block text-sm font-medium mb-1">Management</label>
                 <textarea
                   id="prescription"
                   value={prescription}
                   onChange={(e) => setPrescription(e.target.value)}
                   className="w-full h-32 p-2 border rounded-md"
-                  placeholder="Enter the final prescription..."
+                  placeholder="Enter the management plan..."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="treatment-plan" className="block text-sm font-medium mb-1">Plan</label>
+                <textarea
+                  id="treatment-plan"
+                  value={treatmentPlan}
+                  onChange={(e) => setTreatmentPlan(e.target.value)}
+                  className="w-full h-32 p-2 border rounded-md"
+                  placeholder="Enter follow-up plan, tests, referrals, etc."
                 />
               </div>
 
@@ -236,4 +266,4 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
       </div>
     </main>
   );
-} 
+}

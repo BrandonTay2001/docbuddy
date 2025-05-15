@@ -17,8 +17,10 @@ export default function NewDocument() {
   const [patientName, setPatientName] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [summary, setSummary] = useState('');
+  const [examinationResults, setExaminationResults] = useState(''); // New field
   const [diagnosis, setDiagnosis] = useState('');
   const [prescription, setPrescription] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState(''); // New field
   const [doctorNotes, setDoctorNotes] = useState('');
 
   useEffect(() => {
@@ -53,10 +55,12 @@ export default function NewDocument() {
           patientAge,
           transcript: '', // Empty since this is a manual document
           summary,
+          examinationResults, // New field
           suggestedDiagnosis: diagnosis, // Use final diagnosis as suggested
           suggestedPrescription: prescription, // Use final prescription as suggested
           finalDiagnosis: diagnosis,
           finalPrescription: prescription,
+          treatmentPlan, // New field
           doctorNotes,
         }),
       });
@@ -135,7 +139,7 @@ export default function NewDocument() {
           </div>
           
           <div className="p-6 border border-border rounded-md bg-background">
-            <h3 className="text-xl font-bold mb-4">Consultation Summary</h3>
+            <h3 className="text-xl font-bold mb-4">Patient Complaint & Medical History</h3>
             
             <div className="mb-4">
               <label htmlFor="summary" className="block mb-2 text-sm font-medium">
@@ -155,6 +159,19 @@ export default function NewDocument() {
             <h3 className="text-xl font-bold mb-4">Doctor&apos;s Assessment</h3>
             
             <div className="mb-4">
+              <label htmlFor="examination-results" className="block mb-2 text-sm font-medium">
+                Examination Results
+              </label>
+              <textarea
+                id="examination-results"
+                value={examinationResults}
+                onChange={(e) => setExaminationResults(e.target.value)}
+                className="input w-full min-h-24"
+                placeholder="Enter physical examination findings..."
+              />
+            </div>
+            
+            <div className="mb-4">
               <label htmlFor="diagnosis" className="block mb-2 text-sm font-medium">
                 Diagnosis
               </label>
@@ -162,7 +179,7 @@ export default function NewDocument() {
                 id="diagnosis"
                 value={diagnosis}
                 onChange={(e) => setDiagnosis(e.target.value)}
-                className="input w-full min-h-32"
+                className="input w-full min-h-24"
                 required
                 placeholder="Enter the diagnosis..."
               />
@@ -170,15 +187,28 @@ export default function NewDocument() {
             
             <div className="mb-4">
               <label htmlFor="prescription" className="block mb-2 text-sm font-medium">
-                Prescription
+                Management
               </label>
               <textarea
                 id="prescription"
                 value={prescription}
                 onChange={(e) => setPrescription(e.target.value)}
-                className="input w-full min-h-32"
+                className="input w-full min-h-24"
                 required
-                placeholder="Enter the prescription..."
+                placeholder="Enter the prescription and management..."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label htmlFor="treatment-plan" className="block mb-2 text-sm font-medium">
+                Plan
+              </label>
+              <textarea
+                id="treatment-plan"
+                value={treatmentPlan}
+                onChange={(e) => setTreatmentPlan(e.target.value)}
+                className="input w-full min-h-24"
+                placeholder="Enter follow-up plan, tests, referrals, etc."
               />
             </div>
             
@@ -211,4 +241,4 @@ export default function NewDocument() {
       </div>
     </main>
   );
-} 
+}

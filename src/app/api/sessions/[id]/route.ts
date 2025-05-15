@@ -71,8 +71,10 @@ export async function PATCH(
     const {
       transcript,
       summary,
+      examinationResults, // New field
       diagnosis,
       prescription,
+      treatmentPlan,      // New field
       doctorNotes,
     } = body;
 
@@ -83,7 +85,9 @@ export async function PATCH(
 
       // Update session details
       if (transcript !== undefined || summary !== undefined || 
+          examinationResults !== undefined || // Added check
           diagnosis !== undefined || prescription !== undefined || 
+          treatmentPlan !== undefined ||      // Added check
           doctorNotes !== undefined) {
         const updateFields = [];
         const values = [];
@@ -99,6 +103,11 @@ export async function PATCH(
           values.push(summary);
           paramCount++;
         }
+        if (examinationResults !== undefined) { // Added field
+          updateFields.push(`examination_results = $${paramCount}`);
+          values.push(examinationResults);
+          paramCount++;
+        }
         if (diagnosis !== undefined) {
           updateFields.push(`final_diagnosis = $${paramCount}`);
           values.push(diagnosis);
@@ -107,6 +116,11 @@ export async function PATCH(
         if (prescription !== undefined) {
           updateFields.push(`final_prescription = $${paramCount}`);
           values.push(prescription);
+          paramCount++;
+        }
+        if (treatmentPlan !== undefined) { // Added field
+          updateFields.push(`treatment_plan = $${paramCount}`);
+          values.push(treatmentPlan);
           paramCount++;
         }
         if (doctorNotes !== undefined) {
@@ -128,7 +142,8 @@ export async function PATCH(
 
       // Get the updated session data
       const sessionResult = await client.query(
-        `SELECT name, age, summary, final_diagnosis as diagnosis, final_prescription as prescription, doctor_notes
+        `SELECT name, age, summary, examination_results, final_diagnosis as diagnosis, 
+                final_prescription as prescription, treatment_plan, doctor_notes
          FROM patient_sessions
          WHERE id = $1`,
         [id]
@@ -146,8 +161,10 @@ export async function PATCH(
         patientAge: session.age.toString(),
         date: new Date().toLocaleDateString(),
         summary: session.summary || '',
+        examinationResults: session.examination_results || '', // New field
         diagnosis: session.diagnosis || '',
         prescription: session.prescription || '',
+        treatmentPlan: session.treatment_plan || '', // New field
         doctorNotes: session.doctor_notes || '',
       });
 
@@ -187,4 +204,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-} 
+}

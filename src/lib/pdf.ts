@@ -3,8 +3,10 @@ interface MedicalDocumentData {
   patientAge: string;
   date: string;
   summary: string;
+  examinationResults?: string; // New field
   diagnosis: string;
   prescription: string;
+  treatmentPlan?: string;      // New field
   doctorNotes?: string;
 }
 
@@ -21,9 +23,11 @@ const sanitizeHtml = (text: string): string => {
 
 export function generateMedicalDocumentHtml(data: MedicalDocumentData): string {
   // Sanitize the data
-  const sanitizedSummary = sanitizeHtml(data.summary);
+  const sanitizedSummary = sanitizeHtml(data.summary || '');
+  const sanitizedExaminationResults = data.examinationResults ? sanitizeHtml(data.examinationResults) : '';
   const sanitizedDiagnosis = sanitizeHtml(data.diagnosis);
   const sanitizedPrescription = sanitizeHtml(data.prescription);
+  const sanitizedTreatmentPlan = data.treatmentPlan ? sanitizeHtml(data.treatmentPlan) : '';
   const sanitizedNotes = data.doctorNotes ? sanitizeHtml(data.doctorNotes) : '';
 
   // Create the HTML document
@@ -123,9 +127,16 @@ export function generateMedicalDocumentHtml(data: MedicalDocumentData): string {
       </div>
       
       <div class="section">
-        <div class="section-title">Consultation Summary</div>
+        <div class="section-title">Patient Complaint & Medical History</div>
         <div class="section-content">${sanitizedSummary}</div>
       </div>
+      
+      ${data.examinationResults ? `
+      <div class="section">
+        <div class="section-title">Examination Results</div>
+        <div class="section-content">${sanitizedExaminationResults}</div>
+      </div>
+      ` : ''}
       
       <div class="section">
         <div class="section-title">Diagnosis</div>
@@ -133,13 +144,20 @@ export function generateMedicalDocumentHtml(data: MedicalDocumentData): string {
       </div>
       
       <div class="section">
-        <div class="section-title">Prescription</div>
+        <div class="section-title">Management</div>
         <div class="section-content">${sanitizedPrescription}</div>
       </div>
       
+      ${data.treatmentPlan ? `
+      <div class="section">
+        <div class="section-title">Plan</div>
+        <div class="section-content">${sanitizedTreatmentPlan}</div>
+      </div>
+      ` : ''}
+      
       ${data.doctorNotes ? `
       <div class="section">
-        <div class="section-title">Doctor Notes</div>
+        <div class="section-title">Additional Notes</div>
         <div class="section-content">${sanitizedNotes}</div>
       </div>
       ` : ''}
@@ -169,4 +187,4 @@ export async function generateMedicalDocument(data: MedicalDocumentData): Promis
   // Convert to Uint8Array for compatibility with the existing API
   const arrayBuffer = await blob.arrayBuffer();
   return new Uint8Array(arrayBuffer);
-} 
+}
