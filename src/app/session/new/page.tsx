@@ -1,10 +1,12 @@
 'use client';
 
+// Update the imports, replacing WaveVisualizer with AudioPlayer
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import AudioRecorder from '@/components/AudioRecorder';
+import AudioPlayer from '@/components/AudioPlayer';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
 
@@ -18,7 +20,15 @@ const languageOptions = [
   { label: 'Cantonese', value: 'yue' },
 ];
 
+// Step enum to track current step in the flow
+enum Step {
+  RECORD = 0,
+  REVIEW = 1,
+  COMPLETE = 2
+}
+
 export default function NewSession() {
+  // Basic state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -37,13 +47,19 @@ export default function NewSession() {
   const [showTranscript, setShowTranscript] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<Step>(Step.RECORD);
+  
+  // Additional state for assessment
+  const [examinationResults, setExaminationResults] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  
+  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const recorderMicRef = useRef<HTMLElement | null>(null);
   const recorderStopRef = useRef<HTMLElement | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Add new state and handlers for drag and drop functionality
+  // Drag and drop state
   const [isDragging, setIsDragging] = useState(false);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +114,8 @@ export default function NewSession() {
       const url = URL.createObjectURL(file);
       setAudioUrl(url);
       
-      await processAudioBlob(file);
+      // Move to the review step instead of processing immediately
+      setCurrentStep(Step.REVIEW);
       
     } catch (error: any) {
       console.error('Error uploading file:', error);
@@ -151,11 +168,27 @@ export default function NewSession() {
     }
   };
 
-  const processAudioBlob = async (audioBlob: Blob) => {
+  // Process the recorded audio
+  const handleRecordingComplete = async (audioBlob: Blob) => {
+    const url = URL.createObjectURL(audioBlob);
+    setAudioUrl(url);
+    
+    // Proceed to review step instead of processing immediately
+    setCurrentStep(Step.REVIEW);
+  };
+
+  // Process the audio when the user decides to transcribe
+  const processAudioBlob = async () => {
+    if (!audioUrl) return;
+    
     setIsProcessing(true);
     setError('');
     
     try {
+      // Convert audio URL to blob for transcription
+      const response = await fetch(audioUrl);
+      const audioBlob = await response.blob();
+      
       const transcriptText = await transcribeAudioElevenlabs(audioBlob, selectedLanguage);
       setTranscript(transcriptText);
       
@@ -164,7 +197,7 @@ export default function NewSession() {
         throw new Error('User not authenticated');
       }
 
-      // Use POST method with data in request body instead of OPTIONS with query params
+      // Use POST method with data in request body
       const analysisResponse = await fetch('/api/sessions/analyze', {
         method: 'POST',
         headers: {
@@ -190,18 +223,14 @@ export default function NewSession() {
       setFinalPrescription(analysis.suggestedPrescription);
       
       setIsComplete(true);
+      setCurrentStep(Step.COMPLETE);
+      
     } catch (error) {
       console.error('Error processing audio:', error);
       setError('An error occurred while processing the audio. Please try again.');
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleRecordingComplete = async (audioBlob: Blob) => {
-    const url = URL.createObjectURL(audioBlob);
-    setAudioUrl(url);
-    await processAudioBlob(audioBlob);
   };
 
   // Update the file upload handler to use the common function
@@ -211,10 +240,6 @@ export default function NewSession() {
       handleFile(file);
     }
   };
-
-  // Add new state variables for examination results and plan
-  const [examinationResults, setExaminationResults] = useState('');
-  const [treatmentPlan, setTreatmentPlan] = useState('');
 
   const handleGenerateDocument = async () => {
     if (!patientName || !patientAge || !finalDiagnosis || !finalPrescription) {
@@ -303,6 +328,38 @@ export default function NewSession() {
           </div>
         </header>
         
+        {/* Progress steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between w-full mb-2">
+            <div className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                currentStep >= Step.RECORD ? 'bg-accent text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                1
+              </div>
+              <span className="ml-2 text-sm">Record</span>
+            </div>
+            <div className={`flex-1 h-1 mx-4 ${currentStep >= Step.REVIEW ? 'bg-accent' : 'bg-gray-200'}`} />
+            <div className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                currentStep >= Step.REVIEW ? 'bg-accent text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                2
+              </div>
+              <span className="ml-2 text-sm">Review</span>
+            </div>
+            <div className={`flex-1 h-1 mx-4 ${currentStep >= Step.COMPLETE ? 'bg-accent' : 'bg-gray-200'}`} />
+            <div className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                currentStep >= Step.COMPLETE ? 'bg-accent text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                3
+              </div>
+              <span className="ml-2 text-sm">Complete</span>
+            </div>
+          </div>
+        </div>
+        
         {(isProcessing || isUploading) && (
           <div className="flex justify-center items-center p-12">
             <div className="animate-spin h-8 w-8 border-2 border-accent rounded-full border-t-transparent mr-2" />
@@ -310,126 +367,156 @@ export default function NewSession() {
           </div>
         )}
         
-        {!isComplete ? (
-          <>
-            <div className="mb-8">
-              <p className="mb-4">
-                Start recording your patient session or upload an existing audio file.
-              </p>
+        {/* Step 1: Record Audio */}
+        {currentStep === Step.RECORD && !isProcessing && !isUploading && (
+          <div className="mb-8">
+            <p className="mb-4">
+              Start recording your patient session or upload an existing audio file.
+            </p>
+            
+            <div className="flex flex-col gap-4 mb-4">
+              <AudioRecorder
+                onRecordingComplete={handleRecordingComplete}
+                isRecording={isRecording}
+                onStartRecording={handleStartRecording}
+                onStopRecording={handleStopRecording}
+              />
               
-              <div className="flex flex-col gap-4 mb-4">
-                {/* Audio recorder and language selection in a flex row layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <AudioRecorder
-                    onRecordingComplete={handleRecordingComplete}
-                    isRecording={isRecording}
-                    onStartRecording={handleStartRecording}
-                    onStopRecording={handleStopRecording}
-                  />
-                  
-                  {/* Language selection dropdown */}
-                  <div className="w-full p-4 border border-border rounded-md bg-background">
-                    <label htmlFor="language-select" className="block mb-2 text-sm font-medium">
-                      Select Language
-                    </label>
-                    <select
-                      id="language-select"
-                      className="input w-full"
-                      value={selectedLanguage === null ? '' : selectedLanguage}
-                      onChange={(e) => setSelectedLanguage(e.target.value === '' ? null : e.target.value)}
-                    >
-                      {languageOptions.map((option) => (
-                        <option 
-                          key={option.label} 
-                          value={option.value === null ? '' : option.value}
-                        >
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Choose the majority spoken language in the recording or select "Detect" for automatic detection.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-center">
-                  <div className="flex-grow h-px bg-border"></div>
-                  <span className="px-4 text-sm text-muted-foreground font-medium">OR</span>
-                  <div className="flex-grow h-px bg-border"></div>
-                </div>
-                
-                <div className="w-full p-6 border border-border rounded-md bg-background">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3>Upload Audio</h3>
-                  </div>
-                  
-                  <div
-                    ref={dropAreaRef}
-                    className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors ${
-                      isDragging 
-                        ? 'border-accent bg-accent/5' 
-                        : 'border-border hover:border-accent/50'
-                    }`}
-                    onDragEnter={handleDragEnter}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ cursor: isUploading || isProcessing ? 'not-allowed' : 'pointer' }}
-                  >
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      ref={fileInputRef}
-                      disabled={isUploading || isProcessing}
-                    />
-                    
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="h-12 w-12 text-muted-foreground mb-3"
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={1.5} 
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
-                      />
-                    </svg>
-                    
-                    <p className="mb-2 text-sm font-medium">
-                      {isDragging ? "Drop to upload" : "Drag audio file here or click to browse"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Supported formats: MP3, WAV, M4A, etc. (Max 30MB)
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-center justify-center">
+                <div className="flex-grow h-px bg-border"></div>
+                <span className="px-4 text-sm text-muted-foreground font-medium">OR</span>
+                <div className="flex-grow h-px bg-border"></div>
               </div>
               
-              {error && (
-                <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
-                  {error}
+              <div className="w-full p-6 border border-border rounded-md bg-background">
+                <div className="flex justify-between items-center mb-4">
+                  <h3>Upload Audio</h3>
                 </div>
-              )}
+                
+                <div
+                  ref={dropAreaRef}
+                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors ${
+                    isDragging 
+                      ? 'border-accent bg-accent/5' 
+                      : 'border-border hover:border-accent/50'
+                  }`}
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ cursor: isUploading || isProcessing ? 'not-allowed' : 'pointer' }}
+                >
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    ref={fileInputRef}
+                    disabled={isUploading || isProcessing}
+                  />
+                  
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-12 w-12 text-muted-foreground mb-3"
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5} 
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
+                    />
+                  </svg>
+                  
+                  <p className="mb-2 text-sm font-medium">
+                    {isDragging ? "Drop to upload" : "Drag audio file here or click to browse"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Supported formats: MP3, WAV, M4A, etc. (Max 30MB)
+                  </p>
+                </div>
+              </div>
             </div>
-          </>
-        ) : (
+            
+            {error && (
+              <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Step 2: Review Audio and Select Language */}
+        {currentStep === Step.REVIEW && audioUrl && (
+          <div className="mb-8">
+            <div className="p-6 border border-border rounded-md bg-background mb-4">
+              <h2 className="text-xl font-bold mb-4">Review Recording</h2>
+              
+              <div className="mb-6">
+                {/* Replace WaveVisualizer with AudioPlayer */}
+                <AudioPlayer audioUrl={audioUrl} />
+              </div>
+              
+              <div className="mb-6">
+                <label htmlFor="language-select" className="block mb-2 text-sm font-medium">
+                  Select Majority Language in Recording
+                </label>
+                <select
+                  id="language-select"
+                  className="input w-full"
+                  value={selectedLanguage === null ? '' : selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value === '' ? null : e.target.value)}
+                >
+                  {languageOptions.map((option) => (
+                    <option 
+                      key={option.label} 
+                      value={option.value === null ? '' : option.value}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Choose the majority spoken language in the recording or select "Detect" for automatic detection.
+                </p>
+              </div>
+              
+              <div className="flex justify-between">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => {
+                    if (audioUrl) URL.revokeObjectURL(audioUrl);
+                    setAudioUrl(null);
+                    setCurrentStep(Step.RECORD);
+                  }}
+                >
+                  Back
+                </Button>
+                <Button onClick={processAudioBlob}>
+                  Transcribe & Analyze
+                </Button>
+              </div>
+            </div>
+            
+            {error && (
+              <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Step 3: Complete - Display Analysis & Continue with Session */}
+        {currentStep === Step.COMPLETE && isComplete && (
           <>
             {audioUrl && (
               <div className="mb-6 p-6 rounded-md bg-background">
-                <audio 
-                  controls 
-                  className="w-full"
-                  src={audioUrl}
-                >
-                  Your browser does not support the audio element.
-                </audio>
+                <h2 className="text-xl font-bold mb-4">Recording</h2>
+                {/* Replace WaveVisualizer with AudioPlayer */}
+                <AudioPlayer audioUrl={audioUrl} />
               </div>
             )}
 

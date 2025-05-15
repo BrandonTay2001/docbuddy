@@ -92,29 +92,6 @@ const AudioRecorder = ({
       console.error('Failed to start recording:', error);
     }
   };
-
-  // Handle pausing the recording
-  // const handlePause = () => {
-  //   if (!recorderRef.current) return;
-    
-  //   try {
-  //     recorderRef.current.stop()
-  //       .getMp3()
-  //       .then(([, blob]: [ArrayBuffer, Blob]) => {
-  //         // Use the blob directly from mic-recorder rather than creating a new one
-  //         // This is more reliable as it's properly formatted by the recorder
-  //         onRecordingComplete(blob);
-  //         onStopRecording();
-  //       })
-  //       .catch((error: Error) => {
-  //         console.error('Error pausing recording:', error);
-  //         onStopRecording();
-  //       });
-  //   } catch (error) {
-  //     console.error('Failed to pause recording:', error);
-  //     onStopRecording();
-  //   }
-  // };
   
   // Handle stopping the recording
   const handleStop = () => {
@@ -141,7 +118,7 @@ const AudioRecorder = ({
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      <div className="w-full max-w-md p-6 border border-border rounded-md bg-background shadow-sm">
+      <div className="w-full p-6 border border-border rounded-md bg-background shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h3>Record Live</h3>
           {isRecording && isMounted && (
@@ -154,27 +131,16 @@ const AudioRecorder = ({
         
         <div className="flex justify-center mb-4">
           {isRecording ? (
-            <div className="flex gap-4">
-              <Button 
-                variant="secondary" 
-                className="flex items-center"
-              >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z" />
-                </svg>
-                Pause Session
-              </Button>
-              <Button 
-                variant="secondary" 
-                onClick={handleStop}
-                className="flex items-center"
-              >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <rect x="6" y="6" width="8" height="8" />
-                </svg>
-                End Session
-              </Button>
-            </div>
+            <Button 
+              variant="secondary" 
+              onClick={handleStop}
+              className="flex items-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="6" y="6" width="8" height="8" />
+              </svg>
+              End Session
+            </Button>
           ) : (
             <Button 
               onClick={handleStart}
@@ -198,4 +164,4 @@ const AudioRecorder = ({
   );
 };
 
-export default AudioRecorder; 
+export default AudioRecorder;
