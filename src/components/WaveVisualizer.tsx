@@ -8,7 +8,7 @@ interface WaveVisualizerProps {
 
 const WaveVisualizer: React.FC<WaveVisualizerProps> = ({ audioUrl }) => {
   const waveformRef = useRef<HTMLDivElement>(null);
-  const wavesurferRef = useRef<any>(null);
+  const wavesurferRef = useRef<import('wavesurfer.js').default | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 

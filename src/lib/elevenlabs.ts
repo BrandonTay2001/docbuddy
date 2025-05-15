@@ -9,6 +9,8 @@ interface SpeakerSegment {
 
 export async function transcribeAudioElevenlabs(audioBlob: Blob, languageCode: string | null = null): Promise<string> {
     // download the audio blob as a file
+    console.log(languageCode);
+
     const file = new File([audioBlob], "recording.mp3", { type: "audio/mp3" });
     const options = {
         file: file,

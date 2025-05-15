@@ -23,7 +23,8 @@
     "pg": "^8.16.0",
     "react": "^19.0.0",
     "react-audio-voice-recorder": "^1.2.1",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "wavesurfer.js": "^7.9.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

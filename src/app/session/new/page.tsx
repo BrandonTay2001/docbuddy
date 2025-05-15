@@ -1,6 +1,5 @@
 'use client';
 
-// Update the imports, replacing WaveVisualizer with AudioPlayer
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Button from '@/components/Button';
@@ -9,16 +8,7 @@ import AudioRecorder from '@/components/AudioRecorder';
 import AudioPlayer from '@/components/AudioPlayer';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
-
-// Language mapping from display name to ElevenLabs language code
-const languageOptions = [
-  { label: 'Detect', value: null },
-  { label: 'English', value: 'eng' },
-  { label: 'Bahasa Malaysia', value: 'msa' },
-  { label: 'Tamil', value: 'tam' },
-  { label: 'Mandarin', value: 'cmn' },
-  { label: 'Cantonese', value: 'yue' },
-];
+import { languageOptions } from '@/lib/languageOptions';
 
 // Step enum to track current step in the flow
 enum Step {
@@ -117,9 +107,9 @@ export default function NewSession() {
       // Move to the review step instead of processing immediately
       setCurrentStep(Step.REVIEW);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading file:', error);
-      setError(error.message || 'An error occurred while processing the audio file.');
+      setError(error instanceof Error ? error.message : 'An error occurred while processing the audio file.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -238,6 +228,42 @@ export default function NewSession() {
     const file = event.target.files?.[0];
     if (file) {
       handleFile(file);
+    }
+  };
+
+  // Add copyToClipboard function before the handleGenerateDocument function
+  const [copySuccess, setCopySuccess] = useState(false);
+  
+  const copyToClipboard = () => {
+    try {
+      const formattedText = `Patient: ${patientName || "[Name]"}; Age: ${patientAge || "[Age]"}
+
+Patient complaint and medical history:
+${summary}
+
+Examination results:
+${examinationResults}
+
+Diagnosis:
+${finalDiagnosis}
+
+Management:
+${finalPrescription}
+
+Plan:
+${treatmentPlan}`;
+      
+      navigator.clipboard.writeText(formattedText);
+      
+      // Show success message in green instead of using error state
+      setCopySuccess(true);
+      setTimeout(() => {
+        setCopySuccess(false);
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      setError('Failed to copy to clipboard. Please try again.');
     }
   };
 
@@ -480,7 +506,7 @@ export default function NewSession() {
                   ))}
                 </select>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Choose the majority spoken language in the recording or select "Detect" for automatic detection.
+                  Choose the majority spoken language in the recording or select `&#34;`Detect`&#34;` for automatic detection.
                 </p>
               </div>
               
@@ -669,7 +695,22 @@ export default function NewSession() {
               </div>
             )}
             
-            <div className="flex justify-end">
+            {/* Add success message */}
+            {copySuccess && (
+              <div className="mb-4 p-3 text-sm bg-green-100 text-green-800 rounded-md">
+                Copied to clipboard!
+              </div>
+            )}
+            
+            {/* Change flex to space-between instead of justify-end */}
+            <div className="flex justify-between gap-4">
+              <Button 
+                variant="secondary"
+                onClick={copyToClipboard}
+                disabled={isProcessing}
+              >
+                Copy to Clipboard
+              </Button>
               <Button 
                 onClick={handleGenerateDocument}
                 disabled={isProcessing}
