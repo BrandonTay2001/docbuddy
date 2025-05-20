@@ -70,10 +70,6 @@ export default function Documents() {
         </header>
 
         <div className="mb-8">
-          <p className="mb-6">
-            Documents generated from your sessions will appear here. 
-            Currently, documents are saved locally to your device when generated.
-          </p>
           
           <div className="flex justify-start mb-8">
             <div className="flex gap-4">

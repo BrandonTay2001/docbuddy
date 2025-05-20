@@ -179,14 +179,14 @@ export default function NewSession() {
       const response = await fetch(audioUrl);
       const audioBlob = await response.blob();
       
-      const transcriptText = await transcribeAudioElevenlabs(audioBlob, selectedLanguage);
-      setTranscript(transcriptText);
-      
       const user = await getUserProfile();
       if (!user) {
         throw new Error('User not authenticated');
       }
-
+      
+      const transcriptText = await transcribeAudioElevenlabs(audioBlob, user.id);
+      setTranscript(transcriptText);
+      
       // Use POST method with data in request body
       const analysisResponse = await fetch('/api/sessions/analyze', {
         method: 'POST',
@@ -409,9 +409,9 @@ ${treatmentPlan}`;
               />
               
               <div className="flex items-center justify-center">
-                <div className="flex-grow h-px bg-border"></div>
+                <div className="flex-grow h-px bg-border" />
                 <span className="px-4 text-sm text-muted-foreground font-medium">OR</span>
-                <div className="flex-grow h-px bg-border"></div>
+                <div className="flex-grow h-px bg-border" />
               </div>
               
               <div className="w-full p-6 border border-border rounded-md bg-background">
@@ -421,7 +421,7 @@ ${treatmentPlan}`;
                 
                 <div
                   ref={dropAreaRef}
-                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors ${
+                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors w-full ${
                     isDragging 
                       ? 'border-accent bg-accent/5' 
                       : 'border-border hover:border-accent/50'
@@ -431,6 +431,11 @@ ${treatmentPlan}`;
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      fileInputRef.current?.click();
+                    }
+                  }}
                   style={{ cursor: isUploading || isProcessing ? 'not-allowed' : 'pointer' }}
                 >
                   <input
@@ -448,7 +453,10 @@ ${treatmentPlan}`;
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
+                    aria-hidden="true"
+                    role="img"
                   >
+                    <title>Upload icon</title>
                     <path 
                       strokeLinecap="round" 
                       strokeLinejoin="round" 
