@@ -9,6 +9,7 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
 import { languageOptions } from '@/lib/languageOptions';
+import { useRouter } from 'next/navigation';
 
 // Step enum to track current step in the flow
 enum Step {
@@ -22,6 +23,7 @@ export default function NewSession() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [suggestedDiagnosis, setSuggestedDiagnosis] = useState('');
   const [summary, setSummary] = useState('');
@@ -52,6 +54,10 @@ export default function NewSession() {
   // Drag and drop state
   const [isDragging, setIsDragging] = useState(false);
   const dropAreaRef = useRef<HTMLDivElement>(null);
+
+  const router = useRouter();
+
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -158,13 +164,130 @@ export default function NewSession() {
     }
   };
 
-  // Process the recorded audio
+  const handlePauseRecording = async (audioBlob: Blob) => {
+    try {
+      console.log('handlePauseRecording called with blob...');
+      setIsPaused(true); // Set pause state in UI
+      
+      // Don't set isProcessing to true as it would show loading indicator
+      setError('');
+
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      console.log('User authenticated:', user.id);
+
+      // Convert blob to base64
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert audio to base64'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(audioBlob);
+      });
+      console.log('Audio converted to base64');
+
+      // Save or update draft without redirecting
+      const endpoint = `/api/drafts${currentDraftId ? `/${currentDraftId}` : ''}`;
+      console.log('Calling API endpoint:', endpoint);
+      const response = await fetch(endpoint, {
+        method: currentDraftId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          audioBlob: base64Audio
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save draft');
+      }
+
+      const data = await response.json();
+      console.log('Draft saved/updated:', data);
+      if (!currentDraftId) {
+        setCurrentDraftId(data.draftId);
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setError('An error occurred while saving the draft. Please try again.');
+    }
+  };
+  
+  // Add new resume handler
+  const handleResumeRecording = () => {
+    console.log('Resuming recording...');
+    setIsPaused(false);
+    // No need to do anything else - just update UI state
+  };
+
   const handleRecordingComplete = async (audioBlob: Blob) => {
-    const url = URL.createObjectURL(audioBlob);
-    setAudioUrl(url);
-    
-    // Proceed to review step instead of processing immediately
-    setCurrentStep(Step.REVIEW);
+    console.log('handleRecordingComplete called with blob...');
+    // Save final draft
+    try {
+      setIsProcessing(true);
+      
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Convert blob to base64
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert audio to base64'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(audioBlob);
+      });
+      
+      // Save or update draft with final audio
+      const endpoint = `/api/drafts${currentDraftId ? `/${currentDraftId}` : ''}`;
+      const response = await fetch(endpoint, {
+        method: currentDraftId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          audioBlob: base64Audio,
+          isFinal: true // Mark this as the final version
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save final draft');
+      }
+
+      const data = await response.json();
+      if (!currentDraftId) {
+        setCurrentDraftId(data.draftId);
+      }
+      
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      // Proceed to review step
+      setCurrentStep(Step.REVIEW);
+    } catch (error) {
+      console.error('Error in handleRecordingComplete:', error);
+      setError('An error occurred while saving the recording. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Process the audio when the user decides to transcribe
@@ -406,6 +529,8 @@ ${treatmentPlan}`;
                 isRecording={isRecording}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
+                onPauseRecording={handlePauseRecording}
+                onResumeRecording={handleResumeRecording}
               />
               
               <div className="flex items-center justify-center">

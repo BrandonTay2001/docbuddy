@@ -5,10 +5,12 @@ import Button from './Button';
 import type MicRecorderType from 'mic-recorder-to-mp3';
 
 interface AudioRecorderProps {
-  onRecordingComplete: (audioBlob: Blob) => void;
+  onRecordingComplete: (blob: Blob) => void;
   isRecording: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onPauseRecording?: (blob: Blob) => void;
+  onResumeRecording?: () => void;
 }
 
 const AudioRecorder = ({
@@ -16,6 +18,8 @@ const AudioRecorder = ({
   isRecording,
   onStartRecording,
   onStopRecording,
+  onPauseRecording,
+  onResumeRecording,
 }: AudioRecorderProps) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
@@ -26,22 +30,33 @@ const AudioRecorder = ({
 
   // Set mounted state and initialize recorder
   useEffect(() => {
+    console.log('AudioRecorder component mounted');
     setIsMounted(true);
     
     if (typeof window !== 'undefined') {
+      console.log('Window is defined, importing mic-recorder...');
       // Import and initialize the recorder only on client side
       import('mic-recorder-to-mp3').then((MicRecorderModule) => {
+        console.log('MicRecorder module loaded:', MicRecorderModule);
         const MicRecorder = MicRecorderModule.default;
-        recorderRef.current = new MicRecorder({ 
-          bitRate: 128,
-          prefix: 'data:audio/mp3;base64,',
-        });
+        try {
+          recorderRef.current = new MicRecorder({ 
+            bitRate: 128,
+            prefix: 'data:audio/mp3;base64,',
+          });
+          console.log('Recorder initialized successfully:', recorderRef.current);
+        } catch (error) {
+          console.error('Error initializing recorder:', error);
+        }
       }).catch(error => {
         console.error("Failed to load mic-recorder module:", error);
       });
+    } else {
+      console.log('Window is not defined, skipping recorder initialization');
     }
     
     return () => {
+      console.log('AudioRecorder component unmounting');
       setIsMounted(false);
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -81,12 +96,17 @@ const AudioRecorder = ({
 
   // Handle starting the recording
   const handleStart = () => {
-    if (!recorderRef.current) return;
+    console.log('Start button clicked');
+    if (!recorderRef.current) {
+      console.error('recorderRef.current is null');
+      return;
+    }
     
     try {
+      console.log('Starting recorder...');
       recorderRef.current.start()
         .then(() => {
-          // Recording started
+          console.log('Recording started successfully');
           onStartRecording();
           setIsPaused(false);
           audioChunksRef.current = [];
@@ -101,18 +121,26 @@ const AudioRecorder = ({
   
   // Handle stopping the recording
   const handleStop = () => {
-    if (!recorderRef.current) return;
+    console.log('handleStop called');
+    if (!recorderRef.current) {
+      console.error('recorderRef.current is null');
+      return;
+    }
     
     try {
+      console.log('Stopping recording...');
       recorderRef.current.stop()
         .getMp3()
         .then(([, blob]: [ArrayBuffer, Blob]) => {
+          console.log('Recording stopped, got blob:', blob.size, 'bytes');
           // Add the final chunk to our collection
           audioChunksRef.current.push(blob);
           
           // Combine all audio chunks into a single blob
           const combinedBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
+          console.log('Combined blob size:', combinedBlob.size, 'bytes');
           
+          console.log('Calling onRecordingComplete with blob...');
           // Use the combined blob
           onRecordingComplete(combinedBlob);
           onStopRecording();
@@ -134,20 +162,36 @@ const AudioRecorder = ({
   };
 
   // Handle pausing the recording
-  const handlePause = () => {
-    if (!recorderRef.current) return;
+  const handlePause = async () => {
+    console.log('handlePause called');
+    if (!recorderRef.current) {
+      console.error('recorderRef.current is null');
+      return;
+    }
     
     try {
-      recorderRef.current.stop()
-        .getMp3()
-        .then(([, blob]: [ArrayBuffer, Blob]) => {
-          // Add the current chunk to our collection
-          audioChunksRef.current.push(blob);
-          setIsPaused(true);
-        })
-        .catch((error: Error) => {
-          console.error('Error pausing recording:', error);
-        });
+      console.log('Pausing recording...');
+      // First stop the current recording segment
+      const stopResult = await recorderRef.current.stop().getMp3();
+      const blob = stopResult[1]; // Get the blob from the result
+      
+      console.log('Recording paused, got blob:', blob.size, 'bytes');
+      
+      // Add the current chunk to our collection
+      audioChunksRef.current.push(blob);
+      
+      // Set paused state in UI
+      setIsPaused(true);
+      
+      // Combine all chunks and send to parent for saving
+      const combinedBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
+      console.log('Combined blob size for pause:', combinedBlob.size, 'bytes');
+      
+      // Call parent handler but don't clear chunks since we'll continue recording
+      if (onPauseRecording) {
+        console.log('Calling onPauseRecording with blob...');
+        await onPauseRecording(combinedBlob);
+      }
     } catch (error) {
       console.error('Failed to pause recording:', error);
     }
@@ -155,12 +199,21 @@ const AudioRecorder = ({
 
   // Handle resuming the recording
   const handleResume = () => {
-    if (!recorderRef.current) return;
+    console.log('handleResume called');
+    if (!recorderRef.current) {
+      console.error('recorderRef.current is null');
+      return;
+    }
     
     try {
+      console.log('Resuming recording...');
       recorderRef.current.start()
         .then(() => {
+          console.log('Recording resumed successfully');
           setIsPaused(false);
+          if (onResumeRecording) {
+            onResumeRecording();
+          }
         })
         .catch((error: Error) => {
           console.error('Error resuming recording:', error);
@@ -189,7 +242,10 @@ const AudioRecorder = ({
               {isPaused ? (
                 <Button 
                   variant="secondary" 
-                  onClick={handleResume}
+                  onClick={() => {
+                    console.log('Resume button clicked');
+                    handleResume();
+                  }}
                   className="flex items-center"
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -200,7 +256,10 @@ const AudioRecorder = ({
               ) : (
                 <Button 
                   variant="secondary" 
-                  onClick={handlePause}
+                  onClick={() => {
+                    console.log('Pause button clicked');
+                    handlePause();
+                  }}
                   className="flex items-center"
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -211,7 +270,10 @@ const AudioRecorder = ({
               )}
               <Button 
                 variant="secondary" 
-                onClick={handleStop}
+                onClick={() => {
+                  console.log('Stop button clicked');
+                  handleStop();
+                }}
                 className="flex items-center"
               >
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -222,7 +284,10 @@ const AudioRecorder = ({
             </>
           ) : (
             <Button 
-              onClick={handleStart}
+              onClick={() => {
+                console.log('Start button clicked');
+                handleStart();
+              }}
               className="flex items-center"
             >
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
