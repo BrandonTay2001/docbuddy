@@ -29,7 +29,7 @@ export default function NewDocument() {
 
   const handleCreateDocument = async () => {
     if (!patientName || !patientAge || !diagnosis || !prescription) {
-      setError('Please fill out all required fields.');
+      setError('Please fill out all required fields: name, age, final diagnosis, management');
       return;
     }
     

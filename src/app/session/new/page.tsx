@@ -386,7 +386,7 @@ ${treatmentPlan}`;
 
   const handleGenerateDocument = async () => {
     if (!patientName || !patientAge || !finalDiagnosis || !finalPrescription) {
-      setError('Please fill out all required fields.');
+      setError('Please fill out all required fields: name, age, final diagnosis, management');
       return;
     }
     
@@ -450,6 +450,26 @@ ${treatmentPlan}`;
       }
     };
   }, [audioUrl]);
+
+  // Add age validation function
+  const validateAge = (value: string): string => {
+    // Remove any non-numeric characters
+    const numericValue = value.replace(/[^0-9]/g, '');
+    
+    // Convert to number and clamp between 0-150
+    const age = parseInt(numericValue, 10);
+    
+    if (isNaN(age)) return '';
+    if (age < 0) return '0';
+    if (age > 150) return '150';
+    
+    return age.toString();
+  };
+
+  const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const validatedAge = validateAge(e.target.value);
+    setPatientAge(validatedAge);
+  };
 
   if (!isMounted) {
     return <div className="min-h-screen" />;
@@ -716,9 +736,12 @@ ${treatmentPlan}`;
               
               <Input
                 label="Patient Age"
+                type="number"
                 value={patientAge}
-                onChange={(e) => setPatientAge(e.target.value)}
+                onChange={handleAgeChange}
                 placeholder="45"
+                min="0"
+                max="150"
                 required
                 fullWidth
               />
