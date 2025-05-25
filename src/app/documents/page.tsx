@@ -21,6 +21,11 @@ interface Draft {
   updated_at: string;
 }
 
+interface UserProfile {
+  id: string;
+  // Add other user properties as needed
+}
+
 // Define tab types
 type TabType = 'complete' | 'drafts';
 
@@ -32,7 +37,7 @@ export default function Documents() {
   // Default to showing complete documents
   const [activeTab, setActiveTab] = useState<TabType>('complete');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     setIsMounted(true);

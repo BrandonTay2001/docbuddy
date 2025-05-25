@@ -69,7 +69,8 @@ export async function POST(request: Request) {
       draftId: result.rows[0].id,
       audioUrl: fullAudioUrl
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error('Error saving draft:', error);
     return NextResponse.json(
       { error: 'Failed to save draft' },
       { status: 500 }

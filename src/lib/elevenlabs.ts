@@ -84,7 +84,6 @@ export async function transcribeAudioElevenlabs(audioBlob: Blob, userId: string,
     const USAGE_LIMIT = 120; // 120 minutes limit for DocBuddy Alpha
     
     if (totalUsage > USAGE_LIMIT) {
-        const remainingMinutes = USAGE_LIMIT - currentUsageNum;
         throw new Error(
             `Usage limit exceeded. You have used ${currentUsageNum.toFixed(1)} minutes this month, ` +
             `exceeding the 120-minute limit for DocBuddy Alpha.`

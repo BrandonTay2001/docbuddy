@@ -86,7 +86,7 @@ export default function Usage() {
     <main className="min-h-screen p-6 md:p-12">
       <div className="max-w-3xl mx-auto">
         <header className="flex justify-between items-center mb-12 pb-4 border-b border-border">
-          <h1 className="text-3xl font-bold">Usage & Billing</h1>
+          <h1 className="text-3xl font-bold">Usage &amp; Billing</h1>
           <Link href="/dashboard">
             <Button variant="secondary">Back to Dashboard</Button>
           </Link>
@@ -101,7 +101,7 @@ export default function Usage() {
         <div className="space-y-8">
           {/* Current Month's Usage */}
           <div className="p-6 border border-border rounded-md bg-background">
-            <h2 className="text-xl font-bold mb-4">Current Month's Usage</h2>
+            <h2 className="text-xl font-bold mb-4">Current Month`&apos;`s Usage</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-muted-foreground">
@@ -156,4 +156,4 @@ export default function Usage() {
       </div>
     </main>
   );
-} 
+}

@@ -9,7 +9,6 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
 import { languageOptions } from '@/lib/languageOptions';
-import { useRouter } from 'next/navigation';
 
 // Step enum to track current step in the flow
 enum Step {
@@ -22,8 +21,6 @@ export default function NewSession() {
   // Basic state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [suggestedDiagnosis, setSuggestedDiagnosis] = useState('');
   const [summary, setSummary] = useState('');
@@ -54,8 +51,6 @@ export default function NewSession() {
   // Drag and drop state
   const [isDragging, setIsDragging] = useState(false);
   const dropAreaRef = useRef<HTMLDivElement>(null);
-
-  const router = useRouter();
 
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
@@ -166,7 +161,6 @@ export default function NewSession() {
 
   const handlePauseRecording = async (audioBlob: Blob) => {
     try {
-      setIsPaused(true); // Set pause state in UI
       
       // Don't set isProcessing to true as it would show loading indicator
       setError('');
@@ -219,7 +213,6 @@ export default function NewSession() {
   
   // Add new resume handler
   const handleResumeRecording = () => {
-    setIsPaused(false);
     // No need to do anything else - just update UI state
   };
 
@@ -328,7 +321,6 @@ export default function NewSession() {
       setFinalDiagnosis(analysis.suggestedDiagnosis);
       setFinalPrescription(analysis.suggestedPrescription);
       
-      setIsComplete(true);
       setCurrentStep(Step.COMPLETE);
       
     } catch (error) {
@@ -691,7 +683,7 @@ ${treatmentPlan}`;
         )}
         
         {/* Step 3: Complete - Display Analysis & Continue with Session */}
-        {currentStep === Step.COMPLETE && isComplete && (
+        {currentStep === Step.COMPLETE && (
           <>
             {audioUrl && (
               <div className="mb-6 p-6 rounded-md bg-background">
