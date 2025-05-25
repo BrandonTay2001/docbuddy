@@ -48,6 +48,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json();
     const {
       userId,
       patientName,
@@ -58,10 +59,11 @@ export async function POST(request: Request) {
       suggestedPrescription,
       finalDiagnosis,
       finalPrescription,
-      examinationResults, // New field
-      treatmentPlan,      // New field
-      doctorNotes
-    } = await request.json();
+      examinationResults,
+      treatmentPlan,
+      doctorNotes,
+      draftId // Add this to track which draft to clean up
+    } = body;
 
     // Validate required fields
     if (!userId || !patientName || !patientAge || !finalDiagnosis || !finalPrescription) {
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
       'text/html'
     );
 
-    // Start a transaction
+    // Start a transaction to ensure all operations succeed or fail together
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -146,6 +148,15 @@ export async function POST(request: Request) {
       `;
 
       await client.query(userSessionQuery, [userId, sessionId]);
+
+      // Clean up drafts - delete all drafts for this user that might be related to this session
+      if (draftId) {
+        // Delete the specific draft
+        await client.query(
+          `DELETE FROM draft_sessions WHERE id = $1 AND user_id = $2`,
+          [draftId, userId]
+        );
+      }
 
       await client.query('COMMIT');
 
