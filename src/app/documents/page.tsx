@@ -14,6 +14,7 @@ interface Session {
 
 interface Draft {
   id: string;
+  title: string;
   user_id: string;
   audio_url: string;
   created_at: string;
@@ -30,19 +31,22 @@ export default function Documents() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   // Default to showing complete documents
   const [activeTab, setActiveTab] = useState<TabType>('complete');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     setIsMounted(true);
     
     const fetchData = async () => {
       try {
-        const user = await getUserProfile();
-        if (!user) {
+        const userProfile = await getUserProfile();
+        if (!userProfile) {
           throw new Error('User not found');
         }
+        setUser(userProfile);
 
         // Fetch user sessions
-        const sessionsResponse = await fetch(`/api/sessions?userId=${user.id}`);
+        const sessionsResponse = await fetch(`/api/sessions?userId=${userProfile.id}`);
         if (!sessionsResponse.ok) {
           throw new Error('Failed to fetch sessions');
         }
@@ -50,7 +54,7 @@ export default function Documents() {
         setSessions(sessionsData.sessions);
         
         // Fetch user drafts
-        const draftsResponse = await fetch(`/api/drafts?userId=${user.id}`);
+        const draftsResponse = await fetch(`/api/drafts?userId=${userProfile.id}`);
         if (!draftsResponse.ok) {
           throw new Error('Failed to fetch drafts');
         }
@@ -65,6 +69,74 @@ export default function Documents() {
 
     fetchData();
   }, []);
+
+  // Delete session function
+  const deleteSession = async (sessionId: string) => {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+      return;
+    }
+
+    if (!user) {
+      alert('User not found. Please refresh the page.');
+      return;
+    }
+
+    setDeletingId(sessionId);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete session');
+      }
+
+      setSessions(sessions.filter(session => session.id !== sessionId));
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      alert('Failed to delete document. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Delete draft function
+  const deleteDraft = async (draftId: string) => {
+    if (!confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+      return;
+    }
+
+    if (!user) {
+      alert('User not found. Please refresh the page.');
+      return;
+    }
+
+    setDeletingId(draftId);
+    try {
+      const response = await fetch(`/api/drafts/${draftId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete draft');
+      }
+
+      setDrafts(drafts.filter(draft => draft.id !== draftId));
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      alert('Failed to delete draft. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Format date for display
   const formatDateTime = (dateString: string) => {
@@ -159,16 +231,42 @@ export default function Documents() {
             {drafts.length > 0 ? (
               <div className="space-y-4">
                 {drafts.map((draft) => (
-                  <div
+                  <div 
                     key={draft.id}
                     className="p-4 border border-border rounded-md bg-background hover:bg-accent/5 transition-colors"
                   >
                     <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-semibold">Draft - {formatDateTime(draft.updated_at)}</h3>
-                        <p className="text-sm text-gray-500">
-                          Created: {formatDateTime(draft.created_at)}
-                        </p>
+                      <Link 
+                        href={`/documents/drafts/${draft.id}`}
+                        className="flex-1 hover:underline"
+                      >
+                        <div>
+                          <h3 className="text-lg font-semibold">
+                            {draft.title || `Draft - ${formatDateTime(draft.updated_at)}`}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            Created: {formatDateTime(draft.created_at)}
+                          </p>
+                        </div>
+                      </Link>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            deleteDraft(draft.id);
+                          }}
+                          disabled={deletingId === draft.id}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Delete draft"
+                        >
+                          {deletingId === draft.id ? (
+                            <div className="animate-spin h-4 w-4 border-2 border-red-500 rounded-full border-t-transparent" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -193,7 +291,7 @@ export default function Documents() {
                     className="p-4 border border-border rounded-md bg-background hover:bg-accent/5 transition-colors"
                   >
                     <div className="flex justify-between items-center">
-                      <Link href={`/documents/edit/${session.id}`} className="hover:underline">
+                      <Link href={`/documents/edit/${session.id}`} className="hover:underline flex-1">
                         <div>
                           <h3 className="text-lg font-semibold">{session.name}</h3>
                           <p className="text-sm text-gray-500">
@@ -201,7 +299,7 @@ export default function Documents() {
                           </p>
                         </div>
                       </Link>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="secondary"
                           onClick={() => {
@@ -210,6 +308,23 @@ export default function Documents() {
                         >
                           View Report
                         </Button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            deleteSession(session.id);
+                          }}
+                          disabled={deletingId === session.id}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Delete document"
+                        >
+                          {deletingId === session.id ? (
+                            <div className="animate-spin h-4 w-4 border-2 border-red-500 rounded-full border-t-transparent" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
