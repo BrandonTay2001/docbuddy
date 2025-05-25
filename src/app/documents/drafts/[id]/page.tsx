@@ -162,6 +162,23 @@ export default function DraftPage() {
     }
   };
 
+  const handleProceedWithoutRecording = async () => {
+    if (!draft) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // Use the existing draft audio directly
+      setCombinedAudioUrl(draft.audio_url);
+      setCurrentStep(Step.REVIEW);
+    } catch (error) {
+      console.error('Error proceeding without recording:', error);
+      setError('Failed to proceed with existing audio');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const combineAudioBlobs = async (blob1: Blob, blob2: Blob): Promise<Blob> => {
     const arrayBuffer1 = await blob1.arrayBuffer();
     const arrayBuffer2 = await blob2.arrayBuffer();
@@ -468,7 +485,7 @@ ${treatmentPlan}`;
               
               <div className="flex justify-end">
                 <Button onClick={handleContinueRecording}>
-                  Continue Recording
+                  Continue
                 </Button>
               </div>
             </div>
@@ -490,6 +507,21 @@ ${treatmentPlan}`;
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
               />
+              
+              <div className="flex justify-between mt-6">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => setCurrentStep(Step.EDIT)}
+                >
+                  Back to Edit
+                </Button>
+                <Button 
+                  variant="secondary"
+                  onClick={handleProceedWithoutRecording}
+                >
+                  Proceed Without Further Recording
+                </Button>
+              </div>
             </div>
           </div>
         )}
