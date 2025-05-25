@@ -422,6 +422,7 @@ ${treatmentPlan}`;
           examinationResults,
           treatmentPlan,
           doctorNotes,
+          draftId: currentDraftId // Pass the draft ID for cleanup
         }),
       });
 
@@ -430,6 +431,9 @@ ${treatmentPlan}`;
       }
 
       const { documentUrl } = await sessionResponse.json();
+      
+      // Clear the current draft ID since it will be deleted
+      setCurrentDraftId(null);
       
       if (isMounted && documentUrl) {
         window.open(documentUrl, '_blank');
