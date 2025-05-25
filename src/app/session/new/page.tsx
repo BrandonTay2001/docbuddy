@@ -166,7 +166,6 @@ export default function NewSession() {
 
   const handlePauseRecording = async (audioBlob: Blob) => {
     try {
-      console.log('handlePauseRecording called with blob...');
       setIsPaused(true); // Set pause state in UI
       
       // Don't set isProcessing to true as it would show loading indicator
@@ -176,7 +175,6 @@ export default function NewSession() {
       if (!user) {
         throw new Error('User not authenticated');
       }
-      console.log('User authenticated:', user.id);
 
       // Convert blob to base64
       const base64Audio = await new Promise<string>((resolve, reject) => {
@@ -191,11 +189,9 @@ export default function NewSession() {
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(audioBlob);
       });
-      console.log('Audio converted to base64');
 
       // Save or update draft without redirecting
       const endpoint = `/api/drafts${currentDraftId ? `/${currentDraftId}` : ''}`;
-      console.log('Calling API endpoint:', endpoint);
       const response = await fetch(endpoint, {
         method: currentDraftId ? 'PUT' : 'POST',
         headers: {
@@ -212,7 +208,6 @@ export default function NewSession() {
       }
 
       const data = await response.json();
-      console.log('Draft saved/updated:', data);
       if (!currentDraftId) {
         setCurrentDraftId(data.draftId);
       }
@@ -224,13 +219,11 @@ export default function NewSession() {
   
   // Add new resume handler
   const handleResumeRecording = () => {
-    console.log('Resuming recording...');
     setIsPaused(false);
     // No need to do anything else - just update UI state
   };
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
-    console.log('handleRecordingComplete called with blob...');
     // Save final draft
     try {
       setIsProcessing(true);
@@ -307,7 +300,7 @@ export default function NewSession() {
         throw new Error('User not authenticated');
       }
       
-      const transcriptText = await transcribeAudioElevenlabs(audioBlob, user.id);
+      const transcriptText = await transcribeAudioElevenlabs(audioBlob, user.id, selectedLanguage);
       setTranscript(transcriptText);
       
       // Use POST method with data in request body
@@ -340,7 +333,8 @@ export default function NewSession() {
       
     } catch (error) {
       console.error('Error processing audio:', error);
-      setError('An error occurred while processing the audio. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while processing the audio. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -665,7 +659,11 @@ ${treatmentPlan}`;
             </div>
             
             {error && (
-              <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+              <div className={`mt-4 p-3 text-sm rounded-md ${
+                error.includes('Usage limit exceeded') 
+                  ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
                 {error}
               </div>
             )}

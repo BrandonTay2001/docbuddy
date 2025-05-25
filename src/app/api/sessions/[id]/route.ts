@@ -136,7 +136,6 @@ export async function PATCH(
              WHERE id = $${paramCount}`,
             [...values, id]
           );
-          console.log('Updated session details');
         }
       }
 
@@ -175,7 +174,6 @@ export async function PATCH(
         'text/html'
       );
 
-      console.log('Document URL:', documentUrl);
 
       // Update document URL in database
       await client.query(

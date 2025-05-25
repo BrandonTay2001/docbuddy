@@ -108,7 +108,7 @@ export default function Usage() {
                   {formatMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
                 </span>
                 <span className="text-sm font-medium">
-                  {Number(currentMonthUsage).toFixed(1)} / 120 minutes
+                  {Number(currentMonthUsage).toFixed(1)} / 120.0 minutes
                 </span>
               </div>
               <div className="w-full h-4 bg-input rounded-full overflow-hidden">

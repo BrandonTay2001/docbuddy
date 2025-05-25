@@ -226,7 +226,8 @@ export default function DraftPage() {
       setCurrentStep(Step.COMPLETE);
     } catch (error) {
       console.error('Error processing audio:', error);
-      setError('An error occurred while processing the audio. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while processing the audio. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -516,6 +517,16 @@ ${treatmentPlan}`;
                 </Button>
               </div>
             </div>
+            
+            {error && (
+              <div className={`mt-4 p-3 text-sm rounded-md ${
+                error.includes('Usage limit exceeded') 
+                  ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {error}
+              </div>
+            )}
           </div>
         )}
 

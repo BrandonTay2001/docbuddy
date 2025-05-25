@@ -31,8 +31,14 @@ export async function GET(request: Request) {
 
         const result = await pool.query(query, queryParams);
 
+        // Ensure minutes_used is returned as a number
+        const usage = result.rows.map(row => ({
+            ...row,
+            minutes_used: Number(row.minutes_used)
+        }));
+
         return NextResponse.json({
-            usage: result.rows
+            usage: usage
         });
 
     } catch (error) {
@@ -42,4 +48,4 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-} 
+}
