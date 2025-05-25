@@ -34,12 +34,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    console.log('POST /api/drafts called');
     const { userId, audioBlob } = await request.json();
-    console.log('Request body:', { userId, audioBlobLength: audioBlob?.length });
 
     if (!userId || !audioBlob) {
-      console.error('Missing required fields:', { userId, hasAudioBlob: !!audioBlob });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -49,11 +46,9 @@ export async function POST(request: Request) {
     // Convert base64 to buffer
     const base64Data = audioBlob.split(',')[1];
     const audioBuffer = Buffer.from(base64Data, 'base64');
-    console.log('Audio converted to buffer, size:', audioBuffer.length);
 
     // Upload to R2
     const filePath = `drafts/${userId}/${Date.now()}.webm`;
-    console.log('Uploading to R2:', filePath);
     
     // Get the full URL back from the uploadToR2 function
     const fullAudioUrl = await uploadToR2(
@@ -61,7 +56,6 @@ export async function POST(request: Request) {
       filePath,
       'audio/webm'
     );
-    console.log('Upload to R2 complete, full URL:', fullAudioUrl);
 
     // Save full URL to database
     const result = await pool.query(
@@ -70,14 +64,12 @@ export async function POST(request: Request) {
        RETURNING id`,
       [userId, fullAudioUrl]
     );
-    console.log('Database insert complete:', result.rows[0]);
 
     return NextResponse.json({
       draftId: result.rows[0].id,
       audioUrl: fullAudioUrl
     });
   } catch (error) {
-    console.error('Error in POST /api/drafts:', error);
     return NextResponse.json(
       { error: 'Failed to save draft' },
       { status: 500 }
