@@ -2,15 +2,15 @@ import OpenAI from 'openai';
 
 // Initialize the OpenAI client
 const openai = new OpenAI({
-  baseURL: "https://api.deepseek.com",
-  apiKey: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || '',
+  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+  apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
   dangerouslyAllowBrowser: true,
 });
 
 async function generateSummary(transcript: string, summaryPrompt: string): Promise<string> {
   try {
     const completion = await openai.chat.completions.create({
-      model: "deepseek-chat",
+      model: "gemini-2.5-flash-preview-05-20",
       messages: [
         {
           role: "system",
@@ -37,7 +37,7 @@ async function generateDiagnosisAndPrescription(
 ): Promise<{ diagnosis: string; prescription: string }> {
   try {
     const completion = await openai.chat.completions.create({
-      model: "deepseek-chat",
+      model: "gemini-2.5-flash-preview-05-20",
       messages: [
         {
           role: "system",
