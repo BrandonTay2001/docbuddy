@@ -7,6 +7,7 @@ import Button from '@/components/Button';
 import Input from '@/components/Input';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioPlayer from '@/components/AudioPlayer';
+import MediaUpload from '@/components/MediaUpload';
 import { getUserProfile } from '@/lib/auth';
 import { languageOptions } from '@/lib/languageOptions';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
@@ -59,6 +60,7 @@ export default function DraftPage() {
   const [doctorNotes, setDoctorNotes] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]); // New field
 
   useEffect(() => {
     setIsMounted(true);
@@ -296,25 +298,30 @@ ${treatmentPlan}`;
         throw new Error('User not found');
       }
       
+      // Create FormData to handle both text and files
+      const formData = new FormData();
+      formData.append('userId', user.id);
+      formData.append('patientName', patientName);
+      formData.append('patientAge', patientAge);
+      formData.append('transcript', transcript);
+      formData.append('summary', summary);
+      formData.append('suggestedDiagnosis', suggestedDiagnosis);
+      formData.append('suggestedPrescription', suggestedPrescription);
+      formData.append('finalDiagnosis', finalDiagnosis);
+      formData.append('finalPrescription', finalPrescription);
+      formData.append('examinationResults', examinationResults);
+      formData.append('treatmentPlan', treatmentPlan);
+      formData.append('doctorNotes', doctorNotes);
+      formData.append('draftId', draftId);
+      
+      // Add media files
+      mediaFiles.forEach((file, index) => {
+        formData.append(`mediaFile_${index}`, file);
+      });
+
       const sessionResponse = await fetch('/api/sessions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          patientName,
-          patientAge,
-          transcript,
-          summary,
-          suggestedDiagnosis,
-          suggestedPrescription,
-          finalDiagnosis,
-          finalPrescription,
-          examinationResults,
-          treatmentPlan,
-          doctorNotes,
-        }),
+        body: formData, // Use FormData instead of JSON
       });
 
       if (!sessionResponse.ok) {
@@ -735,6 +742,13 @@ ${treatmentPlan}`;
                   placeholder="Add any additional notes or observations"
                 />
               </div>
+            </div>
+            
+            <div className="mb-4 p-6 border border-border rounded-md bg-background">
+              <MediaUpload 
+                onMediaChange={setMediaFiles}
+                existingMedia={mediaFiles}
+              />
             </div>
             
             {error && (
