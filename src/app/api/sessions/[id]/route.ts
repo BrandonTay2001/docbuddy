@@ -56,6 +56,16 @@ export async function GET(
   }
 }
 
+interface SessionUpdateData {
+  transcript: string;
+  summary: string;
+  examinationResults: string;
+  diagnosis: string;
+  prescription: string;
+  treatmentPlan: string;
+  doctorNotes: string;
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -65,8 +75,8 @@ export async function PATCH(
     const contentType = request.headers.get('content-type');
     
     let userId: string;
-    let sessionData: any;
-    let mediaUrls: string[] = [];
+    let sessionData: SessionUpdateData;
+    const mediaUrls: string[] = [];
     let existingMediaUrls: string[] = [];
     let mediaToDelete: string[] = [];
 
@@ -154,8 +164,6 @@ export async function PATCH(
           { status: 404 }
         );
       }
-
-      const currentSession = currentSessionResult.rows[0];
       
       // Combine existing media URLs (that aren't being deleted) with new ones
       const allMediaUrls = [...existingMediaUrls, ...mediaUrls];

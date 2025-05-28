@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/Button';
@@ -62,12 +62,7 @@ export default function DraftPage() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]); // New field
 
-  useEffect(() => {
-    setIsMounted(true);
-    fetchDraft();
-  }, [draftId]);
-
-  const fetchDraft = async () => {
+  const fetchDraft = useCallback(async () => {
     try {
       const user = await getUserProfile();
       if (!user) {
@@ -88,7 +83,13 @@ export default function DraftPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [draftId]); // Add dependencies for this function
+
+
+  useEffect(() => {
+    setIsMounted(true);
+    fetchDraft();
+  }, [fetchDraft]);
 
   const handleTitleSave = async () => {
     if (!draft) return;

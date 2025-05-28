@@ -294,6 +294,7 @@ export default function EditDocument({ params }: { params: Promise<{ id: string 
                         <div key={url} className="relative group">
                           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
                             {isImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={url}
                                 alt={`Existing media ${index + 1}`}

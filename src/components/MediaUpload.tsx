@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import Button from './Button';
 
 interface MediaFile {
   id: string;
@@ -138,6 +137,7 @@ export default function MediaUpload({ onMediaChange, existingMedia = [] }: Media
             <div key={media.id} className="relative group">
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                 {media.file.type.startsWith('image/') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={media.url}
                     alt="Preview"
