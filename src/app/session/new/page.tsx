@@ -6,6 +6,7 @@ import Button from '@/components/Button';
 import Input from '@/components/Input';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioPlayer from '@/components/AudioPlayer';
+import MediaUpload from '@/components/MediaUpload';
 import { transcribeAudioElevenlabs } from '@/lib/elevenlabs';
 import { getUserProfile } from '@/lib/auth';
 import { languageOptions } from '@/lib/languageOptions';
@@ -21,7 +22,6 @@ export default function NewSession() {
   // Basic state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [suggestedDiagnosis, setSuggestedDiagnosis] = useState('');
   const [summary, setSummary] = useState('');
@@ -42,6 +42,7 @@ export default function NewSession() {
   // Additional state for assessment
   const [examinationResults, setExaminationResults] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]); // Changed to File[]
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +53,8 @@ export default function NewSession() {
   // Drag and drop state
   const [isDragging, setIsDragging] = useState(false);
   const dropAreaRef = useRef<HTMLDivElement>(null);
+
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -158,13 +161,121 @@ export default function NewSession() {
     }
   };
 
-  // Process the recorded audio
+  const handlePauseRecording = async (audioBlob: Blob) => {
+    try {
+      
+      // Don't set isProcessing to true as it would show loading indicator
+      setError('');
+
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Convert blob to base64
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert audio to base64'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(audioBlob);
+      });
+
+      // Save or update draft without redirecting
+      const endpoint = `/api/drafts${currentDraftId ? `/${currentDraftId}` : ''}`;
+      const response = await fetch(endpoint, {
+        method: currentDraftId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          audioBlob: base64Audio
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save draft');
+      }
+
+      const data = await response.json();
+      if (!currentDraftId) {
+        setCurrentDraftId(data.draftId);
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setError('An error occurred while saving the draft. Please try again.');
+    }
+  };
+  
+  // Add new resume handler
+  const handleResumeRecording = () => {
+    // No need to do anything else - just update UI state
+  };
+
   const handleRecordingComplete = async (audioBlob: Blob) => {
-    const url = URL.createObjectURL(audioBlob);
-    setAudioUrl(url);
-    
-    // Proceed to review step instead of processing immediately
-    setCurrentStep(Step.REVIEW);
+    // Save final draft
+    try {
+      setIsProcessing(true);
+      
+      const user = await getUserProfile();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Convert blob to base64
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert audio to base64'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(audioBlob);
+      });
+      
+      // Save or update draft with final audio
+      const endpoint = `/api/drafts${currentDraftId ? `/${currentDraftId}` : ''}`;
+      const response = await fetch(endpoint, {
+        method: currentDraftId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          audioBlob: base64Audio,
+          isFinal: true // Mark this as the final version
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save final draft');
+      }
+
+      const data = await response.json();
+      if (!currentDraftId) {
+        setCurrentDraftId(data.draftId);
+      }
+      
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      // Proceed to review step
+      setCurrentStep(Step.REVIEW);
+    } catch (error) {
+      console.error('Error in handleRecordingComplete:', error);
+      setError('An error occurred while saving the recording. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Process the audio when the user decides to transcribe
@@ -179,14 +290,14 @@ export default function NewSession() {
       const response = await fetch(audioUrl);
       const audioBlob = await response.blob();
       
-      const transcriptText = await transcribeAudioElevenlabs(audioBlob, selectedLanguage);
-      setTranscript(transcriptText);
-      
       const user = await getUserProfile();
       if (!user) {
         throw new Error('User not authenticated');
       }
-
+      
+      const transcriptText = await transcribeAudioElevenlabs(audioBlob, user.id, selectedLanguage);
+      setTranscript(transcriptText);
+      
       // Use POST method with data in request body
       const analysisResponse = await fetch('/api/sessions/analyze', {
         method: 'POST',
@@ -212,12 +323,12 @@ export default function NewSession() {
       setFinalDiagnosis(analysis.suggestedDiagnosis);
       setFinalPrescription(analysis.suggestedPrescription);
       
-      setIsComplete(true);
       setCurrentStep(Step.COMPLETE);
       
     } catch (error) {
       console.error('Error processing audio:', error);
-      setError('An error occurred while processing the audio. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while processing the audio. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -269,7 +380,7 @@ ${treatmentPlan}`;
 
   const handleGenerateDocument = async () => {
     if (!patientName || !patientAge || !finalDiagnosis || !finalPrescription) {
-      setError('Please fill out all required fields.');
+      setError('Please fill out all required fields: name, age, final diagnosis, management');
       return;
     }
     
@@ -281,25 +392,32 @@ ${treatmentPlan}`;
         throw new Error('User not found');
       }
       
+      // Create FormData to handle both text and files
+      const formData = new FormData();
+      formData.append('userId', user.id);
+      formData.append('patientName', patientName);
+      formData.append('patientAge', patientAge);
+      formData.append('transcript', transcript);
+      formData.append('summary', summary);
+      formData.append('suggestedDiagnosis', suggestedDiagnosis);
+      formData.append('suggestedPrescription', suggestedPrescription);
+      formData.append('finalDiagnosis', finalDiagnosis);
+      formData.append('finalPrescription', finalPrescription);
+      formData.append('examinationResults', examinationResults);
+      formData.append('treatmentPlan', treatmentPlan);
+      formData.append('doctorNotes', doctorNotes);
+      if (currentDraftId) {
+        formData.append('draftId', currentDraftId);
+      }
+      
+      // Add media files
+      mediaFiles.forEach((file, index) => {
+        formData.append(`mediaFile_${index}`, file);
+      });
+
       const sessionResponse = await fetch('/api/sessions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          patientName,
-          patientAge,
-          transcript,
-          summary,
-          suggestedDiagnosis,
-          suggestedPrescription,
-          finalDiagnosis,
-          finalPrescription,
-          examinationResults,
-          treatmentPlan,
-          doctorNotes,
-        }),
+        body: formData, // Use FormData instead of JSON
       });
 
       if (!sessionResponse.ok) {
@@ -307,6 +425,9 @@ ${treatmentPlan}`;
       }
 
       const { documentUrl } = await sessionResponse.json();
+      
+      // Clear the current draft ID since it will be deleted
+      setCurrentDraftId(null);
       
       if (isMounted && documentUrl) {
         window.open(documentUrl, '_blank');
@@ -329,6 +450,26 @@ ${treatmentPlan}`;
       }
     };
   }, [audioUrl]);
+
+  // Add age validation function
+  const validateAge = (value: string): string => {
+    // Remove any non-numeric characters
+    const numericValue = value.replace(/[^0-9]/g, '');
+    
+    // Convert to number and clamp between 0-150
+    const age = parseInt(numericValue, 10);
+    
+    if (isNaN(age)) return '';
+    if (age < 0) return '0';
+    if (age > 150) return '150';
+    
+    return age.toString();
+  };
+
+  const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const validatedAge = validateAge(e.target.value);
+    setPatientAge(validatedAge);
+  };
 
   if (!isMounted) {
     return <div className="min-h-screen" />;
@@ -397,7 +538,7 @@ ${treatmentPlan}`;
         {currentStep === Step.RECORD && !isProcessing && !isUploading && (
           <div className="mb-8">
             <p className="mb-4">
-              Start recording your patient session or upload an existing audio file.
+              Start recording your patient session or upload an existing audio file. Paused or incomplete recodings will be saved as drafts.
             </p>
             
             <div className="flex flex-col gap-4 mb-4">
@@ -406,12 +547,14 @@ ${treatmentPlan}`;
                 isRecording={isRecording}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
+                onPauseRecording={handlePauseRecording}
+                onResumeRecording={handleResumeRecording}
               />
               
               <div className="flex items-center justify-center">
-                <div className="flex-grow h-px bg-border"></div>
+                <div className="flex-grow h-px bg-border" />
                 <span className="px-4 text-sm text-muted-foreground font-medium">OR</span>
-                <div className="flex-grow h-px bg-border"></div>
+                <div className="flex-grow h-px bg-border" />
               </div>
               
               <div className="w-full p-6 border border-border rounded-md bg-background">
@@ -421,7 +564,7 @@ ${treatmentPlan}`;
                 
                 <div
                   ref={dropAreaRef}
-                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors ${
+                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors w-full ${
                     isDragging 
                       ? 'border-accent bg-accent/5' 
                       : 'border-border hover:border-accent/50'
@@ -431,6 +574,11 @@ ${treatmentPlan}`;
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      fileInputRef.current?.click();
+                    }
+                  }}
                   style={{ cursor: isUploading || isProcessing ? 'not-allowed' : 'pointer' }}
                 >
                   <input
@@ -448,7 +596,10 @@ ${treatmentPlan}`;
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
+                    aria-hidden="true"
+                    role="img"
                   >
+                    <title>Upload icon</title>
                     <path 
                       strokeLinecap="round" 
                       strokeLinejoin="round" 
@@ -528,7 +679,11 @@ ${treatmentPlan}`;
             </div>
             
             {error && (
-              <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+              <div className={`mt-4 p-3 text-sm rounded-md ${
+                error.includes('Usage limit exceeded') 
+                  ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
                 {error}
               </div>
             )}
@@ -536,7 +691,7 @@ ${treatmentPlan}`;
         )}
         
         {/* Step 3: Complete - Display Analysis & Continue with Session */}
-        {currentStep === Step.COMPLETE && isComplete && (
+        {currentStep === Step.COMPLETE && (
           <>
             {audioUrl && (
               <div className="mb-6 p-6 rounded-md bg-background">
@@ -581,9 +736,12 @@ ${treatmentPlan}`;
               
               <Input
                 label="Patient Age"
+                type="number"
                 value={patientAge}
-                onChange={(e) => setPatientAge(e.target.value)}
+                onChange={handleAgeChange}
                 placeholder="45"
+                min="0"
+                max="150"
                 required
                 fullWidth
               />
@@ -687,6 +845,13 @@ ${treatmentPlan}`;
                   placeholder="Add any additional notes or observations"
                 />
               </div>
+            </div>
+            
+            <div className="mb-4 p-6 border border-border rounded-md bg-background">
+              <MediaUpload 
+                onMediaChange={setMediaFiles}
+                existingMedia={mediaFiles}
+              />
             </div>
             
             {error && (
